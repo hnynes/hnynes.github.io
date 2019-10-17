@@ -24,8 +24,6 @@
 /search/search.json
 /sitemap.txt
 /assets/css/style.css
-/site_origin/
-/site_origin/testpage/
 /page2/
 /page3/
 /page4/
