@@ -1,0 +1,998 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>8步从Python白板到专家 | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="8步从Python白板到专家">
+    <meta property="og:url" content="/python/2015/04/23/8%E6%AD%A5%E4%BB%8EPython%E7%99%BD%E6%9D%BF%E5%88%B0%E4%B8%93%E5%AE%B6/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="8步从Python白板到专家">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/python/2015/04/23/8%E6%AD%A5%E4%BB%8EPython%E7%99%BD%E6%9D%BF%E5%88%B0%E4%B8%93%E5%AE%B6/" title="8步从Python白板到专家" itemprop="url">8步从Python白板到专家</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2015-04-23 00:00:00 +0800" itemprop="datePublished"> 发表于 2015-04-23</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>8步从Python白板到专家，从基础到深度学习</p>
+
+<p>如果你想做一个数据科学家，或者作为一个数据科学家你想扩展自己的工具和知识库，那么，你来对地方了。</p>
+
+<p>这篇文章的目的，是给刚开始使用Python进行数据分析的人，指明一条全面的Python学习路径。这条路径提供了用Python进行数据分析的必要步骤的一个全面概述。如果你已经有了一些基础，或者不需要所有的内容，可以随意调整学习路径以适合自己，并让我们知道你是怎么改动的。</p>
+
+<p>0热身运动<br />
+在开始学习之前，第一个需要回答的问题是</p>
+
+<p><img src="/assets/img/2015-04-23-p1.png" alt="" /></p>
+
+<p>推荐这个30分钟的录像，它是DataRobot创始人Jeremy在2014年Python社区大会（PyCon）上的讲话，它能够让你了解Python有多有用。小编注：建议在Wi-Fi连接下观看。</p>
+
+<p>1、设置你的计算机<br />
+既然你已经下定了决心，是时候设置你的计算机了。最简单的方法是直接从Continuum.io下载Anaconda，它含有你Python生涯中需要的绝大多数好东东 。</p>
+
+<p><img src="/assets/img/2015-04-23-p2.png" alt="" /></p>
+
+<p>https://store.continuum.io/cshop/anaconda/</p>
+
+<p>这样做的主要缺点是，即便有一些底层包已经有更新版本的时候，你还是需要等待Continuum更新Anaconda中的包。如果你只是刚刚开始，那这一点就不算是个问题。如果在安装时遇到任何困难，你可以在下面这个网站找到在不同操作系统下安装的详细指引。</p>
+
+<p>http://www.datarobot.com/blog/getting-up-and-running-with-python/</p>
+
+<p><img src="/assets/img/2015-04-23-p3.png" alt="" /></p>
+
+<p>2、学习基本知识<br />
+你应该从了解Python语言、库和数据结构的基础知识开始，这个来自Codecademy的教程是你开始学习的最佳选择之一。</p>
+
+<p><img src="/assets/img/2015-04-23-p4.png" alt="" /></p>
+
+<p>http://www.codecademy.com/tracks/python</p>
+
+<p>在学完这个教程后，你应该可以轻松地用Python写些小程序，并且对类和对象的含义也有了理解。</p>
+
+<p>特别学习：Lists（列表），Tuples（元组），Dictionaries（字典），列表的内涵和字典的内涵。<br />
+完成作业：完成在HackerRank上的教程习题。这些作业应该能让你的大脑因Python而“燃烧”。<br />
+备用资源：如果交互式编程学习不适合你，你也可以看看这个Google上的Python课程。这个两天的课程，内容覆盖了随后会提到的一些内容。</p>
+
+<p><img src="/assets/img/2015-04-23-p5.png" alt="" /></p>
+
+<p>https://developers.google.com/edu/python/。</p>
+
+<p>3、学习正则表达式<br />
+你将会大量使用它来进行数据清洗，特别是在处理文本数据。学习正则表达式的最好方法是完成这个课程</p>
+
+<p><img src="/assets/img/2015-04-23-p6.png" alt="" /></p>
+
+<p>https://developers.google.com/edu/python/regular-expressions</p>
+
+<p>并把这个“夹带”（当然不是考试的小抄，是速查表）放在随手可得的地方。</p>
+
+<p><img src="/assets/img/2015-04-23-p7.png" alt="" /></p>
+
+<p>小编注：请上网站查看完整内容。<br />
+www.debuggex.com/cheatsheet/regex/python</p>
+
+<p>完成“婴儿取名”练习</p>
+
+<p><img src="/assets/img/2015-04-23-p8.png" alt="" /></p>
+
+<p>https://developers.google.com/edu/python/exercises/baby-names</p>
+
+<p>如果想（gou）要（dan）更多的练习，请学习这个文本清理的课程。该课程将会在数据清理的不同步骤给你挑战。</p>
+
+<p><img src="/assets/img/2015-04-23-p9.png" alt="" /></p>
+
+<p>http://www.analyticsvidhya.com/blog/2014/11/text-data-cleaning-steps-python/。</p>
+
+<p>4、学习Python科学库<br />
+有趣之事，始于此处！这里，简要介绍不同的Python科学库——NumPy, SciPy, Matplotlib和Pandas。那么，让我们开始练习常用操作吧！</p>
+
+<p>完整地练习NumPy操作课程，特别是NumPy的数组操作。这会建立一个好的基础，为将要面临的现实挑战做准备。</p>
+
+<p><img src="/assets/img/2015-04-23-p10.png" alt="" /></p>
+
+<p>http://wiki.scipy.org/Tentative_NumPy_Tutorial</p>
+
+<p>接下来，看看SciPy的课程。完整学习简介和基础知识部分，剩余部分可根据个人需要进行学习。</p>
+
+<p><img src="/assets/img/2015-04-23-p11.png" alt="" /></p>
+
+<p>http://docs.scipy.org/doc/scipy/reference/tutorial/</p>
+
+<p>如果你猜下一个是Matplotlib教程，那就错了！就我们目前的情况而言，它们太过全面了。事实上，把ipython笔记看到第68行（到animations）就基本可以了。</p>
+
+<p><img src="/assets/img/2015-04-23-p12.png" alt="" /></p>
+
+<p>http://nbviewer.ipython.org/github/jrjohansson/scientific-python-lectures/blob/master/Lecture-4-Matplotlib.ipynb</p>
+
+<p>最后，我们来看Pandas。它为Python提供了数据帧（DataFrame）的功能，类似于R语言。你也需要在这上面多花时间好好练习。对于所有中等规模的数据分析来说，Panda将会成为最有效的工具。从这个短小的10分钟入门开始，了解一下Pandas。然后，… …</p>
+
+<p><img src="/assets/img/2015-04-23-p13.png" alt="" /></p>
+
+<p>http://pandas.pydata.org/pandas-docs/stable/10min.html</p>
+
+<p>然后，再看更详细的课程</p>
+
+<p><img src="/assets/img/2015-04-23-p14.png" alt="" /></p>
+
+<p>http://www.gregreda.com/2013/10/26/intro-to-pandas-data-structures/。</p>
+
+<p>你还可以看看“用Pandas进行探索性数据分析”（http://www.analyticsvidhya.com/blog/2014/09/data-munging-python-using-pandas-baby-steps-python/）以及“用Pandas进行数据整合”（http://www.analyticsvidhya.com/blog/2014/08/baby-steps-python-performing-exploratory-analysis-python/）两篇文章。</p>
+
+<p>其它资源：<br />
+ 如果你需要一本有关Pandas和NumPy的教材，推荐Wes McKinney著的《Python for Data Analysis》</p>
+
+<p><img src="/assets/img/2015-04-23-p15.jpg" alt="" /></p>
+
+<p>下面这个网站，还有很多的教程可作为Pandas的学习材料。</p>
+
+<p><img src="/assets/img/2015-04-23-p16.png" alt="" /></p>
+
+<p>http://pandas.pydata.org/pandas-docs/stable/tutorials.html</p>
+
+<p>完成来自哈佛大学CS109课程的作业。</p>
+
+<p><img src="/assets/img/2015-04-23-p17.png" alt="" /></p>
+
+<p>http://nbviewer.ipython.org/github/cs109/2014/blob/master/homework/HW1.ipynb</p>
+
+<p>小编注：回复 可视化 查看【数据科学之5个最佳Python库】，了解关于这些科学库的更多介绍和学习资源。</p>
+
+<p>5、有效的数据可视化<br />
+学完这个来自CS109的课程，你可以跳过前面的两分钟，接来下的内容非常精彩！</p>
+
+<p><img src="/assets/img/2015-04-23-p18.png" alt="" /></p>
+
+<p>http://cm.dce.harvard.edu/2015/01/14328/L03/screen_H264LargeTalkingHead-16x9.shtml</p>
+
+<p>跟着课程完成下面课程作业</p>
+
+<p><img src="/assets/img/2015-04-23-p19.png" alt="" /></p>
+
+<p>http://nbviewer.ipython.org/github/cs109/2014/blob/master/homework/HW2.ipynb</p>
+
+<p>6、学习Scikit-learn和机器学习<br />
+现在，我们来到了整个过程的实质部分。Scikit-learn是在Python中对机器学习最有用的库。</p>
+
+<p>学完来自哈佛大学2014年的CS109课程中第10讲到第18讲。你会全面了解机器学习，监督式学习算法（如回归、决策树、整体建模等）和非监督式学习算法（如聚类等）。切记，跟随每一讲，完成作业。</p>
+
+<p><img src="/assets/img/2015-04-23-p20.png" alt="" /></p>
+
+<p>http://cs109.github.io/2014/pages/schedule.html</p>
+
+<p>其它资源：<br />
+ 如果有一本必读的书，那就是《Programming Collective Intelligence》，非常经典，仍然是关于这方面最好的书之一</p>
+
+<p><img src="/assets/img/2015-04-23-p21.jpg" alt="" /></p>
+
+<p>另外，如果你需要技术上更清晰的解释，可以选择Andrew Ng（这位大牛的课，不该不知道吧？）课程 ，用Python完成其中的习题。</p>
+
+<p><img src="/assets/img/2015-04-23-p22.png" alt="" /></p>
+
+<p>https://www.coursera.org/course/ml</p>
+
+<p>Scikit-lean的教程（这个不能忘）<br />
+试着完成Kaggle上的这个挑战</p>
+
+<p><img src="/assets/img/2015-04-23-p23.png" alt="" /></p>
+
+<p>http://www.kaggle.com/c/data-science-london-scikit-learn</p>
+
+<p>7、练习，练习，再练习<br />
+祝贺你，你做到了！现在，你已经拥有所需要的全部技能，只差练习了。哪里会有比在Kaggle上练习更好呢？上Kaggle与跟你一样的数据科学家一较高下。去吧，参加一个在Kaggle上正在举办的实时比赛吧！试试你所学到的全部知识！</p>
+
+<p><img src="/assets/img/2015-04-23-p24.png" alt="" /></p>
+
+<p>http://www.kaggle.com/</p>
+
+<p>8、深度学习<br />
+终于看到这个，兴奋吧？！现在，你已经学到了绝大多数关于机器学习的技术，是时候试试深度学习了。很有可能你已然知道什么是深度学习，万一仍然需要一个简要介绍，可以看看这个。</p>
+
+<p><img src="/assets/img/2015-04-23-p25.png" alt="" /></p>
+
+<p>http://www.analyticsvidhya.com/blog/2014/06/deep-learning-attention/</p>
+
+<p>对于深度学习，我也是个新手，就请把这些建议当作参考吧。最全面的资源在deeplearning.net上，在那里，你会找到所有的东西——讲座、数据集、挑战和教程。</p>
+
+<p><img src="/assets/img/2015-04-23-p26.png" alt="" /></p>
+
+<p>http://deeplearning.net</p>
+
+<p>如果想要了解神经网络的基本知识，试着学习Geoff Hinton（这个大牛，你应该也是知道的吧）的课程</p>
+
+<p><img src="/assets/img/2015-04-23-p27.png" alt="" /></p>
+
+<p>https://www.coursera.org/course/neuralnets</p>
+
+<p>篇外话：假如你需要面向大数据的Python库，请试试Pydoop和PyMongo。由于“大数据的学习路径”本身就是一个完整的话题，因此，本文并未涉及。</p>
+
+<p>来源：</p>
+<ol>
+  <li>http://www.analyticsvidhya.com/learning-paths-data-science-business-analytics-business-intelligence-big-data/learning-path-data-science-python/</li>
+  <li>https://www.youtube.com/watch?v=CoxjADZHUQA</li>
+</ol>
+
+<p>【译者简介】<br />
+姚佳灵：家庭主妇，对数据处理和数据分析很感兴趣，正在学习Python，希望能和大家多交流。</p>
+
+<p>康欣：博士，多年从事图像及数据处理和分析、计算机视觉、模式识别、机器学习、增强现实等领域的技术研究和创新应用，现为西门子中国研究院高级研究员。希望借此平台，与大数据分析爱好者以及专家学者交流、合作。</p>
+
+<p>原文地址: http://bi.dataguru.cn/article-6939-1.html</p>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#python">python</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#python">python</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/python/2015/04/23/8%E6%AD%A5%E4%BB%8EPython%E7%99%BD%E6%9D%BF%E5%88%B0%E4%B8%93%E5%AE%B6/" data-title="8步从Python白板到专家 | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/linux/2015/03/19/ext3_ext4_xfs%E5%92%8Cbtrfs%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD%E5%AF%B9%E6%AF%94/" title="ext3_ext4_xfs和btrfs文件系统性能对比">
+  <strong>上一篇：</strong><br/>
+  <span>
+  ext3_ext4_xfs和btrfs文件系统性能对比</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/linux/2019/09/06/%E4%BD%BF%E7%94%A8Wireshark%E6%9F%A5%E7%9C%8Btcpdump%E6%8A%93%E5%8C%85%E6%95%B0%E6%8D%AE/"  title="使用Wireshark查看tcpdump抓包数据">
+ <strong>下一篇：</strong><br/> 
+ <span>使用Wireshark查看tcpdump抓包数据
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

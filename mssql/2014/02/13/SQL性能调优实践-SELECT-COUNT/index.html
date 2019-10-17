@@ -1,0 +1,939 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>SQL性能调优实践——SELECT COUNT | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="SQL性能调优实践——SELECT COUNT">
+    <meta property="og:url" content="/mssql/2014/02/13/SQL%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E5%AE%9E%E8%B7%B5-SELECT-COUNT/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="SQL性能调优实践——SELECT COUNT">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/mssql/2014/02/13/SQL%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E5%AE%9E%E8%B7%B5-SELECT-COUNT/" title="SQL性能调优实践——SELECT COUNT" itemprop="url">SQL性能调优实践——SELECT COUNT</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2014-02-13 00:00:00 +0800" itemprop="datePublished"> 发表于 2014-02-13</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>SQL性能调优实践——SELECT COUNT</p>
+
+<p>最近想深入学习SQL，在网上搜索到一些SQL 优化的资料要么是张冠李戴，Oracle 优化的资料硬是弄成啦MS SQL 优化的资料，而且被很多人转载，收藏，有些要么有些含糊不清，好像是那么回事，也没经过验证，实践出真知！下面是我对SELECT COUNT(*)， SELECT COUNT(1)，SELECT COUNT (0), SELECT COUNT(Field)等孰优孰劣的测试结果，如果测试方法有什么不足，也希望大家给点建议。</p>
+
+<p>首先我们来看看测试的机器、以及开发环境吧：双核处理器 T6670  2G DDR2的内存 数据版本如下图所示：</p>
+
+<p><img src="/assets/img/2014-02-13-p1.gif" alt="" /></p>
+
+<p>然后建一个简单的测试表</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CREATE TABLE Employee
+(
+    [EmployeeID]        INT IDENTITY(1,1),  --雇员ID
+    [EmployeeName]      NVARCHAR(20)     ,  --雇员姓名
+     [SEX]               BIT              ,  --性别
+     [Department]        NVARCHAR(20)     ,  --部门
+     CONSTRAINT [PK_Employee_ID_Name] PRIMARY KEY (EmployeeID, EmployeeName) 
+)
+ 
+--插入一百万数据
+ 
+DECLARE @Index INT;
+SET @Index = 1;
+WHILE @Index &lt; 1000000
+BEGIN
+    INSERT INTO Employee
+    VALUES('Employee' + STR(@Index), '0', '技术部门');
+    
+    SET @Index = @Index + 1;
+END
+ 
+--建立非聚集索引
+CREATE INDEX IDX_Employee_Department ON Employee([Department]);
+</code></pre></div></div>
+
+<p>好，到目前为止我们已经把测试用的表、数据都弄好啦，接下来我们来看看执行一次SELECT COUNT 的使用时间</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DBCC DROPCLEANBUFFERS; 
+DBCC FREEPROCCACHE;
+SET STATISTICS TIME ON;
+SELECT COUNT(0) FROM Employee
+SET STATISTICS TIME OFF;
+</code></pre></div></div>
+
+<p>我们会得到下面的输出结果</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DBCC 执行完毕。如果DBCC 输出了错误信息，请与系统管理员联系。
+DBCC 执行完毕。如果DBCC 输出了错误信息，请与系统管理员联系。
+</code></pre></div></div>
+
+<p>SQL Server 执行时间:</p>
+
+<p>CPU 时间= 219 毫秒，占用时间= 1033 毫秒。</p>
+
+<p>接下来我们来看看各种Count的实际执行计划，截图如下</p>
+
+<p><img src="/assets/img/2014-02-13-p2.gif" alt="" /> 
+<img src="/assets/img/2014-02-13-p3.gif" alt="" /></p>
+
+<p>我很纳闷为什么执行计划都是一样的，希望有高手能解答。</p>
+
+<p>接下来，那么我们把上面的脚本执行10次，把每次得到的数据记录下来，然后我们依次用</p>
+
+<p>SELECT COUNT(1) FROM Employee、 SELECT COUNT(*)  FROM Employee</p>
+
+<p>等替换SELECT COUNT(0) FROM Employee 脚本，如下所示</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DBCC DROPCLEANBUFFERS;
+DBCC FREEPROCCACHE;
+SET STATISTICS TIME ON;
+SELECT COUNT(1) FROM Employee
+SET STATISTICS TIME OFF; 
+</code></pre></div></div>
+
+<p>依葫芦画瓢每段脚本执行10次，最后我们求得到的结果的平均值，为了形象显示，我用Excel把数据显示如下：</p>
+
+<p>SELECT COUNT(1) FROM Employee</p>
+
+<p><img src="/assets/img/2014-02-13-p4.gif" alt="" /></p>
+
+<p>SELECT COUNT(0) FROM Employee</p>
+
+<p><img src="/assets/img/2014-02-13-p5.gif" alt="" /></p>
+
+<p>SELECT COUNT(*) FROM Employee</p>
+
+<p><img src="/assets/img/2014-02-13-p6.gif" alt="" /></p>
+
+<p>SELECT COUNT(EmployeeName) FROM Employee</p>
+
+<p><img src="/assets/img/2014-02-13-p7.gif" alt="" /></p>
+
+<p>从实验结果来看，执行快慢的顺序为： COUNT(EmployeeName) &gt; COUNT(0) ~= COUNT(1) &gt; COUNT(<em>);从实验结果来看，我们至少验证了 COUNT(0) ~= COUNT(1) &gt; COUNT(</em>)的结论，网上有篇帖子《SQL Server 索引结构及其使用》篇所下的结论count(*)不比count(字段)慢 显然是不严谨的，他只做了一次实验，而我们这里是10次结果的平均值。那么现在问题来了，为什么COUNT(EmployeeName)要快于COUNT(0) &gt;= COUNT(1)，它如果不是主键、字段没有索引呢？网上不是有些资料显示COUNT(1)效率最高，速度最快吗？ 我们10次得到平结值有没有误差呢？抽样能否反映事实呢？下面我用这个方法来大量获得语句执行时间，然后求平均值，（我觉得这方法应该是可以反映实际CPU时间的）如果有不妥的地方，也希望大家指正。 创建下面一个表</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CREATE TABLE ExcuteTime
+(
+    [Type]     VARCHAR(10),    --不同COUNT类型
+     [CpuTime]    FLOAT         --语句执行的毫秒
+)
+</code></pre></div></div>
+
+<p>–得到COUNT(1)100次的执行时间</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DECLARE @BeginTime DATETIME;
+DECLARE @Num INT;
+SET @Num = 1;
+WHILE @Num &lt;= 100
+BEGIN
+SET @BeginTime = GETDATE();
+SELECT COUNT(1) FROM Employee;
+INSERT INTO ExcuteTime
+VALUES('Count(1)', DATEDIFF(ms, @BeginTime,GETDATE()));
+SET @Num = @Num + 1;
+END
+GO
+</code></pre></div></div>
+
+<p>然后也依次得到其它几种SQl 的执行时间，另外我们也把COUNT(Department)得数据加入进来，下面是我得到的实验结果的平均值</p>
+
+<table>
+  <tbody>
+    <tr>
+      <td>COUNT(1)</td>
+      <td>COUNT(0)</td>
+      <td>COUNT(*)</td>
+      <td>COUNT(EmployeeName)</td>
+      <td>COUNT(Department)</td>
+    </tr>
+    <tr>
+      <td>100.09</td>
+      <td>99.27</td>
+      <td>100.28</td>
+      <td>65.95</td>
+      <td>134.13</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/assets/img/2014-02-13-p8.gif" alt="" /></p>
+
+<p>数据显示也与上面的测试结果相一致，虽然得到了这些结果，由于统计偏差缘故，COUNT（0）比 COUNT（1) 稍稍快些，这个是完全可以忽略，因为我统计的次数比小，很容易造成偏差，COUNT(<em>) 接近于COUNT(1)，估计是由于数据缓存缘故，其实我们从实验结果可以看出统计数据的速度： 对索引字段统计要快于COUNT(1),原因是COUNT(1)是要走全表扫描，而COUNT(1) 快于COUNT(</em>) ,是因为COUNT(*)走全表扫描的开销要大于COUNT(1), 至于统计非索引字段COUNT(Department)，比较偏大的，则让我有点纳闷，估计是统计偏差缘故。</p>
+
+<p>作者：潇湘隐者
+出处：http://www.cnblogs.com/kerrycode/</p>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#mssql">mssql</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#mssql">mssql</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/mssql/2014/02/13/SQL%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E5%AE%9E%E8%B7%B5-SELECT-COUNT/" data-title="SQL性能调优实践——SELECT COUNT | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/mysql/2014/02/13/MySQL%E4%B9%B1%E7%A0%81%E4%B8%8E%E5%AD%97%E7%AC%A6%E9%9B%86/" title="MySQL乱码与字符集">
+  <strong>上一篇：</strong><br/>
+  <span>
+  MySQL乱码与字符集</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/mysql/2014/02/24/MYSQL%E4%B8%AD%E6%96%87%E4%B9%B1%E7%A0%81%E9%97%AE%E9%A2%98/"  title="MYSQL中文乱码问题">
+ <strong>下一篇：</strong><br/> 
+ <span>MYSQL中文乱码问题
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

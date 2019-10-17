@@ -1,0 +1,845 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>MySQL写入插入数据优化配置 | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="MySQL写入插入数据优化配置">
+    <meta property="og:url" content="/mysql/2014/12/23/MySQL%E5%86%99%E5%85%A5%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE%E4%BC%98%E5%8C%96%E9%85%8D%E7%BD%AE/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="MySQL写入插入数据优化配置">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/mysql/2014/12/23/MySQL%E5%86%99%E5%85%A5%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE%E4%BC%98%E5%8C%96%E9%85%8D%E7%BD%AE/" title="MySQL写入插入数据优化配置" itemprop="url">MySQL写入插入数据优化配置</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2014-12-23 00:00:00 +0800" itemprop="datePublished"> 发表于 2014-12-23</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>MySQL写入插入数据优化配置</p>
+
+<p>文章重点介绍mysql写入优化，这里针对mysql的Innodb与MyISAM存储引擎来进行解说，希望文章来给大家带来帮助哦。<br />
+*innodb_buffer_pool_size</p>
+
+<p>如果用Innodb，那么这是一个重要变量。相对于MyISAM来说，Innodb对于buffer size更敏感。MySIAM可能对于大数据量使用默认的key_buffer_size也还好，但Innodb在大数据量时用默认值就感觉在爬了。 Innodb的缓冲池会缓存数据和索引，所以不需要给系统的缓存留空间，如果只用Innodb，可以把这个值设为内存的70%-80%。和 key_buffer相同，如果数据量比较小也不怎么增加，那么不要把这个值设太高也可以提高内存的使用率</p>
+
+<p>*innodb_additional_pool_size</p>
+
+<p>这个的效果不是很明显，至少是当操作系统能合理分配内存时。但你可能仍需要设成20M或更多一点以看Innodb会分配多少内存做其他用途</p>
+
+<p>*innodb_log_file_size</p>
+
+<p>对于写很多尤其是大数据量时非常重要。要注意，大的文件提供更高的性能，但数据库恢复时会用更多的时间。我一般用64M-512M，具体取决于服务器的空间</p>
+
+<p>*innodb_log_buffer_size</p>
+
+<p>默认值对于多数中等写操作和事务短的运用都是可以的。如果经常做更新或者使用了很多blob数据，应该增大这个值。但太大了也是浪费内存，因为1秒钟总会 flush（这个词的中文怎么说呢？）一次，所以不需要设到超过1秒的需求。8M-16M一般应该够了。小的运用可以设更小一点</p>
+
+<p>innodb_flush_log_at_trx_commit （这个很管用</p>
+
+<p>抱怨Innodb比MyISAM慢 100倍？那么你大概是忘了调整这个值。默认值1的意思是每一次事务提交或事务外的指令都需要把日志写入（flush）硬盘，这是很费时的。特别是使用电 池供电缓存（Battery backed up cache）时。设成2对于很多运用，特别是从MyISAM表转过来的是可以的，它的意思是不写入硬盘而是写入系统缓存。日志仍然会每秒flush到硬 盘，所以你一般不会丢失超过1-2秒的更新。设成0会更快一点，但安全方面比较差，即使MySQL挂了也可能会丢失事务的数据。而值2只会在整个操作系统 挂了时才可能丢数据。</p>
+
+<p>上面是网上看的，我发现慢查询日志内有很多update和insert的查询，就把innodb_flush_log_at_trx_commit改成了2，效果很明显，改成0会更明显，但安全性比较差。做下面的操作启动mysqld就生效</p>
+
+<p>vim /etc/my.cn</p>
+
+<p>innodb_flush_log_at_trx_commit=2</p>
+
+<p>也可以在mysqld运行时执行</p>
+
+<p>set GLOBAL innodb_flush_log_at_trx_commit = 2</p>
+
+<p>下面是mysql手册上innodb_flush_log_at_trx_commit的解释</p>
+
+<p>如果innodb_flush_log_at_trx_commit设置为0，log buffer将每秒一次地写入log file中，并且log file的flush(刷到磁盘)操作同时进行；但是，这种模式下，在事务提交的时候，不会有任何动作。如果 innodb_flush_log_at_trx_commit设置为1(默认值)，log buffer每次事务提交都会写入log file，并且，flush刷到磁盘中去。如果innodb_flush_log_at_trx_commit设置为2，log buffer在每次事务提交的时候都会写入log file，但是，flush(刷到磁盘)操作并不会同时进行。这种模式下，MySQL会每秒一次地去做flush(刷到磁盘)操作。注意：由于进程调度策 略问题，这个“每秒一次的flush(刷到磁盘)操作”并不是保证100%的“每秒”</p>
+
+<p>默认值1是为了ACID (atomicity, consistency, isolation, durability)原子性，一致性，隔离性和持久化的考虑。如果你不把innodb_flush_log_at_trx_commit设置为1，你将获得更好的性能，但是，你在系统崩溃的情况，可能会丢失最多一秒钟的事务数据。当你把innodb_flush_log_at_trx_commit设置 为0，mysqld进程的崩溃会导致上一秒钟所有事务数据的丢失。如果你把innodb_flush_log_at_trx_commit设置为2，只有在操作系统崩溃或者系统掉电的情况下，上一秒钟所有事务数据才可能丢失。InnoDB的crash recovery崩溃恢复机制并不受这个值的影响，不管这个值设置为多少，crash recovery崩溃恢复机制都会工作。</p>
+
+<p>另外innodb_flush_method参数也值得关注，对写操作有影响</p>
+
+<p>innodb_flush_method： 设置InnoDB同步IO的方式</p>
+
+<p>1) Default – 使用fsync（）</p>
+
+<p>2) O_SYNC 以sync模式打开文件，通常比较慢</p>
+
+<p>3) O_DIRECT，在Linux上使用Direct IO。可以显著提高速度，特别是在RAID系统上。避免额外的数据复制和double buffering（mysql buffering 和OS buffering）。</p>
+
+<p>原文链接:  http://www.111cn.net/database/mysql/56376.htm</p>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#mysql">mysql</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#mysql">mysql</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/mysql/2014/12/23/MySQL%E5%86%99%E5%85%A5%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE%E4%BC%98%E5%8C%96%E9%85%8D%E7%BD%AE/" data-title="MySQL写入插入数据优化配置 | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/mysql/2014/12/03/MySQL%E4%B8%AD%E8%AE%A1%E7%AE%97sql%E8%AF%AD%E5%8F%A5%E5%BD%B1%E5%93%8D%E8%A1%8C%E6%95%B0%E7%9A%84%E5%87%BD%E6%95%B0/" title="MySQL中计算sql语句影响行数的函数">
+  <strong>上一篇：</strong><br/>
+  <span>
+  MySQL中计算sql语句影响行数的函数</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/linux/2015/03/19/ext3_ext4_xfs%E5%92%8Cbtrfs%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD%E5%AF%B9%E6%AF%94/"  title="ext3_ext4_xfs和btrfs文件系统性能对比">
+ <strong>下一篇：</strong><br/> 
+ <span>ext3_ext4_xfs和btrfs文件系统性能对比
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

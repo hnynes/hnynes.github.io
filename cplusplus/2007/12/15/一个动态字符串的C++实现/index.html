@@ -1,0 +1,1315 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>一个动态字符串的C++实现 | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="一个动态字符串的C++实现">
+    <meta property="og:url" content="/cplusplus/2007/12/15/%E4%B8%80%E4%B8%AA%E5%8A%A8%E6%80%81%E5%AD%97%E7%AC%A6%E4%B8%B2%E7%9A%84C++%E5%AE%9E%E7%8E%B0/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="使用C++写的一个动态字符串的实现. 如果你有任何问题或意见欢迎到 GitHub 发表 issue。">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="一个动态字符串的C++实现">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/cplusplus/2007/12/15/%E4%B8%80%E4%B8%AA%E5%8A%A8%E6%80%81%E5%AD%97%E7%AC%A6%E4%B8%B2%E7%9A%84C++%E5%AE%9E%E7%8E%B0/" title="一个动态字符串的C++实现" itemprop="url">一个动态字符串的C++实现</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2007-12-15 00:00:00 +0800" itemprop="datePublished"> 发表于 2007-12-15</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>以前写的一个动态字符串的实现,本来是想找一下原来写的数据库与通讯程序的封装类,好像被弄丢了,遗憾!</p>
+
+<p># 
+    // Filename: DynamicString.h
+    #ifndef <em>DYNAMICSTRING</em>
+    #define <em>DYNAMICSTRING</em>
+    #include</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>class DynamicString
+{
+public:
+    DynamicString();
+    DynamicString( std::size_t n , char c );
+    DynamicString( const char *first , const char *last );
+    DynamicString( const char *str );
+    DynamicString( const DynamicString &amp;rhs );
+    DynamicString&amp; operator=( const DynamicString &amp;rhs ) ;
+    ~ DynamicString ( ) ;
+    std::size_t _size( ) const ;
+    char* _begin();
+    char* _end();
+    const char* _begin() const;
+    const char* _end() const;
+    const char* _c_str() ;
+    const char* _data() const ;
+    DynamicString _substr( std::size_t index , std::size_t n ) ;
+    void _push_back( char c );
+    void _pop_back() ;
+    std::size_t _capacity( ) const ;
+    void _reserve( std::size_t n );
+    void _resize( std::size_t n ,char c );
+    void _erase( std::size_t index );
+    void _erase( std::size_t first ,std::size_t last ) ;
+    void _insert( std::size_t index , std::size_t n , char c ) ;
+    void _insert(std::size_t index , const char* first , const char* last ) ;
+    char&amp; operator[]( std::size_t index );
+    const char&amp; operator[]( std::size_t index ) const ;
+    char&amp; _at( std::size_t index );
+    const char&amp; _at( std::size_t index ) const ;
+    void _swap( DynamicString&amp; rhs ) ;
+    void _assign( std::size_t n , char c ) ;
+    void _assign( const char* first , const char* last ) ;
+    void _assign( const char* str ) ;
+    bool _empty() { return  m_len ? false : true ; }
+    DynamicString &amp;operator+= ( char c ) ;
+    DynamicString &amp;operator+= ( char *s ) ;
+    DynamicString &amp;operator+= ( DynamicString &amp;str ) ;
+    DynamicString &amp;operator= ( char c ) ;
+    DynamicString &amp;operator= ( char *s ) ;
+private:  
+    const static std::size_t MINLENGTH ;          
+    std::size_t m_len;
+    std::size_t m_capa;   
+    char *m_data;
+    char* alloc_char( std::size_t n) { return new char[n]; }
+    //计算机器分配的最小空间
+    std::size_t cal_data( std::size_t n )
+    {
+        std::size_t result = MINLENGTH ;
+        if( n &gt;= MINLENGTH )
+            while( result &lt; n  )
+                result *= 2 ;
+        return result ;
+    }
+};
+bool operator== ( const DynamicString &amp;left, const DynamicString &amp;right )
+{
+    bool tmpb = false ;
+    if( left._size() == right._size() )
+    {  
+        tmpb = std::equal( left._begin(), left._end(), right._begin() ) ;
+    }
+    return tmpb ;
+}
+bool operator!= ( const DynamicString &amp; left, const DynamicString &amp;right )
+{
+    bool tmpb = false ;
+    tmpb = ( ! ( left == right ) ) ;
+    return tmpb ;
+}
+/*
+template
+    bool lexicographical_compare(InIt1 first1, InIt1 last1,
+        InIt2 first2, InIt2 last2);
+template
+    bool lexicographical_compare(InIt1 first1, InIt1 last1,
+        InIt2 first2, InIt2 last2, Pred pr);
+*/
+bool operator&lt; ( const DynamicString &amp;left, const DynamicString &amp;right )
+{
+     bool tmpb = false ;
+     tmpb = std::lexicographical_compare( left._begin(), left._end(),
+                                         right._begin(), right._end() ) ;
+     return tmpb ;
+}
+bool operator&lt;= ( const DynamicString &amp;left, const DynamicString &amp;right )
+{
+    bool tmpb = false ;
+    tmpb = ( ! ( right &lt; left ) ) ;
+    return tmpb ;
+}
+bool operator&gt; ( const DynamicString &amp;left, const DynamicString &amp;right )
+{
+     bool tmpb = false ;
+     tmpb = ( ! ( left &lt;= right ) ) ;
+     return tmpb ;
+}
+bool operator&gt;= ( const DynamicString &amp;left, const DynamicString &amp;right )
+{
+    bool tmpb = false ;
+    tmpb = ( ! ( left &lt; right ) ) ;
+    return tmpb ;
+}
+
+#endif
+ 
+// Filename: DynamicString.cpp
+//define the identidy-type size_t
+#include "DynamicString.h"
+#include
+#include
+#include
+const std::size_t DynamicString::MINLENGTH = 32 ;
+DynamicString::DynamicString( ) : m_len(0), m_capa(0), m_data(0) {  }
+DynamicString::DynamicString( std::size_t n , char c ) : m_len(0),
+    m_capa( 0 ) , m_data( 0 )
+{
+    std::size_t tmpx = cal_data( 2 * n + 1 ) ;
+    m_data = alloc_char( tmpx );
+    if( m_data )
+    {  
+        std::fill( m_data , m_data + tmpx ,'\0' );
+        std::fill_n( m_data , n , c);
+        m_len = n ;
+        m_capa = tmpx - 1 ;      
+    }
+}
+           
+      
+DynamicString::DynamicString( const char* first , const char* last ) :
+    m_len( 0 ), m_capa( 0 ),m_data( 0 )
+{
+    ptrdiff_t tmpi = last - first ;
+    std::size_t tmpx = cal_data( 2 * tmpi + 1 ); 
+    m_data = alloc_char( tmpx );   
+    if( m_data )
+    {  
+        std::fill( m_data , m_data + tmpx , '\0');
+        m_len = tmpi ;
+        m_capa = tmpx - 1 ; 
+        char *tmpj = m_data ;
+        for( const char* tmpk = first ; tmpk != last ; ++tmpk , ++tmpj )
+            *tmpj = *tmpk ;     
+        //std::copy( first ,last ,m_data );
+    }   
+}
+   
+DynamicString::DynamicString( const char* str ) : m_len( 0 ),
+    m_capa( 0 ) , m_data( 0 )
+{
+    std::size_t tmpi = strlen(str);
+    std::size_t tmpx = cal_data( 2 * tmpi + 1 );
+    m_data = alloc_char( tmpx ) ;
+    if( m_data )
+    {
+        std::fill( m_data , m_data + tmpx , '\0');
+        m_len = tmpi;
+        m_capa = tmpx - 1 ;
+        char *tmpj = m_data ;
+        for( const char *tmpk = str; tmpk != str + tmpi +1; ++tmpk,++tmpj )
+            *tmpj = *tmpk;
+    }
+}
+DynamicString::DynamicString( const DynamicString &amp;rhs ) : m_len(0),m_capa(0),
+    m_data(0)
+{
+    std::size_t tmpx = cal_data( 2 * rhs.m_len + 1 ) ;
+    m_data = alloc_char( tmpx );
+    if( m_data )
+    {
+        std::fill( m_data , m_data + tmpx , '\0' );
+        /*
+        for ( char* tmpi = m_data ; tmpi != rhs.m_data + m_len ; ++tmpi)
+            *tmpi = (*rhs.m_data)++;
+        */
+        std::copy( rhs._begin(), rhs._end(), m_data ) ;
+        m_len = rhs.m_len;
+        m_capa = tmpx - 1 ;
+    } 
+}
+DynamicString&amp; DynamicString::operator=( const DynamicString &amp;rhs )
+{
+    if( &amp;rhs != this )
+    {
+        if( m_capa &lt;= rhs._size() )
+        {
+            delete [] m_data ;
+            std::size_t tmpx = cal_data( rhs.m_len * 2 + 1 ) ;
+            m_data = alloc_char( tmpx );
+            if( m_data )
+            {
+                std::copy( rhs._begin(), rhs._end() , m_data ) ;
+                m_len = rhs.m_len ;
+                m_capa = tmpx - 1 ;
+            }
+        }
+        else
+        {
+            std::copy( rhs.m_data, rhs.m_data + rhs.m_capa ,m_data );
+            m_len = rhs.m_len ;
+        }
+    }
+    return *this ;
+}
+DynamicString::~DynamicString( )
+{
+    if( ! m_data )     delete []m_data ;
+}
+std::size_t DynamicString::_size( ) const
+{
+    return m_len ;
+}
+char* DynamicString::_begin()
+{
+    return m_data ;
+}
+const char* DynamicString::_begin() const
+{
+    return m_data ;
+}
+char* DynamicString::_end()
+{
+    return m_data + m_len ;
+}
+const char* DynamicString::_end() const
+{
+    return m_data + m_len ;
+}
+const char* DynamicString::_c_str()
+{
+    *( m_data + m_len ) = '\0' ;
+    return m_data;
+}
+const char* DynamicString::_data() const
+{
+    return m_data;
+}
+DynamicString DynamicString::_substr( std::size_t index , std::size_t n )
+{
+    if( index &lt; m_len )
+        return DynamicString( m_data + index,
+                              m_data + std::min( index + n, m_len ) ) ;
+       
+    else
+        throw std::out_of_range( "Access out of rang ! " ) ;
+}
+   
+void DynamicString::_push_back( char c )
+{
+    if( m_len + 1 &gt; m_capa )
+    {
+        std::size_t tmpx = cal_data( 2 * m_capa + 1 ) ;
+        char *tmp = alloc_char( tmpx ) ;
+        std::fill( tmp, tmp + tmpx, '\0' );
+        std::copy( m_data , m_data + m_len , tmp );
+        *( tmp + m_capa ) = c ;
+        m_len = m_capa ;
+        m_capa = tmpx - 1 ;
+        delete []m_data ;
+        m_data = tmp ;
+    }
+    else
+    {
+        *(m_data + m_len ) = c ;
+        ++ m_len ;       
+    }
+}
+void DynamicString::_pop_back()
+{
+    if( m_data )
+    {
+        if( m_len  != 0 )
+        {
+            m_len -= 1 ;
+            *( m_data + m_len ) = '\0' ;
+        }
+    }
+    return ;
+}
+std::size_t DynamicString::_capacity() const
+{
+    if( m_data )
+        return m_capa ;
+    else
+        return 0;
+}
+void DynamicString::_reserve( std::size_t n )
+{
+    if( n &gt; m_capa )
+    {       
+        std::size_t tmpx = cal_data( n + 1 ) ;
+        char* tmp = alloc_char( tmpx );
+        std::fill( tmp, tmp + tmpx, '\0' ) ;
+        std::copy( m_data, m_data + m_capa + 1 , tmp );
+        m_capa = tmpx - 1 ;
+        delete []m_data ;
+        m_data = tmp ;
+    }
+    return ;
+}
+void DynamicString::_resize( std::size_t n, char c )
+{
+    if( m_len &lt; n )
+        _insert( m_len, n - m_len, c ) ;
+    else if( m_len &gt; n )
+        _erase( n, m_len ) ;
+    return ;
+} 
+void DynamicString::_erase( std::size_t index )
+{
+    if( m_data )
+    {  
+        if( index &lt; m_len )
+        {
+            std::copy( m_data + index + 1 , m_data + m_len, m_data + index );
+            --m_len ;
+            *( m_data + m_len ) = '\0';
+        }
+    }
+    return ;
+}
+void DynamicString::_erase( std::size_t first, std::size_t last )
+{
+    if( first &lt; m_len )
+    {
+        std::copy( m_data + std::min( last, m_len ), m_data + m_len, m_data + first ) ;
+        m_len -= ( std::min( last, m_len ) - first ) ;
+        std::fill( m_data + m_len, m_data + m_capa, '\0' );
+    }
+    return ;
+}
+void DynamicString::_insert( std::size_t index, std::size_t n, char c )
+{
+    if( index &lt;= m_len )
+        if( m_len + n &lt; m_capa )
+        {
+            std::copy_backward( m_data + index , m_data + m_len, m_data + m_len + n );
+            std::fill_n( m_data + index, n, c ) ;
+            m_len += n ;
+        }
+        else
+        {
+            std::size_t tmpx = cal_data( ( m_len + n ) * 2 + 1 );
+            char* tmp = alloc_char( tmpx ) ;
+            std::fill( tmp, tmp + tmpx, '\0');
+            std::copy( m_data, m_data + index, tmp ) ;   
+            std::fill_n( tmp + index, n, c );
+            std::copy( m_data + index, m_data + m_len, tmp + index + n );
+            m_len += n ;
+            m_capa = tmpx - 1 ;
+            delete []m_data ;
+            m_data = tmp ;
+        }
+    //else
+    //    throw std::out_of_range( "Access out of range ! " ) ;
+}
+void DynamicString::_insert( std::size_t index, const char* first,
+                             const char* last )
+{
+    if( index &gt; m_len )
+    {  
+        //throw std::out_of_range( "Access out of range !" ) ;
+        //std::copy( first, last, m_len ) ;
+        //m_len += ( last - first ) ;
+    }       
+    else
+    {   if( m_len + ( last - first ) &lt; m_capa )
+        {
+            std::copy_backward( m_data + index, m_data + m_len,
+                          m_data + m_len + ( last - first ) ) ;
+            std::copy( first, last, m_data + index ) ;
+            m_len += ( last - first );
+        }
+        else
+        {
+            std::size_t tmpx = cal_data( ( m_len + ( last - first ) ) * 2 + 1 );
+            char* tmp = alloc_char( tmpx ) ;
+            std::fill( tmp,tmp + tmpx, '\0' );
+            std::copy( m_data, m_data + index, tmp);
+            std::copy( first, last, tmp + index );
+            std::copy( m_data + index + 1, m_data + m_len,
+                    tmp + index + ( last - first ) );
+            m_len += ( last - first );
+            m_capa = tmpx - 1 ;
+        }
+    }
+}
+char&amp; DynamicString::operator[]( std::size_t index )
+{
+    return *( m_data + index ) ;
+}
+const char&amp; DynamicString::operator[]( std::size_t index ) const
+{
+    return *( m_data + index ) ;
+}
+char&amp; DynamicString::_at( std::size_t index )
+{
+    if( 0 &lt;= index &amp;&amp; index &lt; m_len )
+        return *( m_data + index ) ;
+    else
+        throw std::out_of_range("Access out of range !") ;
+}
+const char&amp; DynamicString::_at( std::size_t index ) const
+{
+    if( 0 &lt;= index &amp;&amp; index &lt; m_len )
+        return *( m_data + index ) ;
+    else
+        throw std::out_of_range("Access out of range !") ;
+}
+void DynamicString::_swap( DynamicString&amp; rhs )
+{
+    char *tmp = rhs.m_data ;
+    std::size_t tmplen = rhs.m_len ;
+    std::size_t tmpcapa = rhs.m_capa ;
+    rhs.m_data = m_data ;
+    rhs.m_len = m_len ;
+    rhs.m_capa = m_capa ;
+    m_data = tmp ;
+    m_len = tmplen ;
+    m_capa = tmpcapa ;
+}
+void DynamicString::_assign( std::size_t n, char c )
+{
+    if( n &gt;= m_capa )
+    {
+        std::size_t tmpx = cal_data( 2 * n + 1 ) ;
+        char *tmp = alloc_char( tmpx ) ;
+        std::fill( tmp, tmp + tmpx, '\0' );
+        std::fill_n( tmp, n, c );
+        m_len = n ;
+        m_capa = tmpx - 1 ;
+        delete []m_data ;
+        m_data = tmp ;
+    }
+    else
+    {
+        std::fill( m_data, m_data + m_capa, '\0' );
+        std::fill( m_data, m_data + n, c );
+        m_len = n ;
+    }
+}
+void DynamicString::_assign( const char* first, const char* last )
+{
+    if( ( last - first ) &gt;= static_cast( m_capa ) )
+    {
+        std::size_t tmpx = cal_data( 2 * ( last - first ) + 1 ) ;
+        char *tmp = alloc_char( tmpx ) ;
+        std::fill( tmp, tmp + tmpx, '\0' );
+        std::copy( first, last, tmp );
+        m_len = static_cast&lt; std::size_t &gt;( last - first ) ;
+        m_capa = tmpx - 1 ;
+        delete []m_data ;
+        m_data = tmp ;
+    }
+    else
+    {
+        std::fill( m_data, m_data + m_capa, '\0' );
+        std::copy( first, last, m_data );
+        m_len += ( last - first );
+    }
+}
+void DynamicString::_assign( const char* str )
+{
+    std::size_t stringlen = strlen( str );
+    if( stringlen &gt;= m_capa )
+    {
+        std::size_t tmpx = cal_data( 2 * stringlen + 1 ) ;
+        char *tmp = alloc_char( tmpx ) ;
+        std::fill( tmp, tmp + tmpx, '\0' );
+        std::copy( str, str + stringlen, tmp );
+        m_len =  stringlen  ;
+        m_capa = tmpx - 1 ;
+        delete []m_data ;
+        m_data = tmp ;
+    }
+    else
+    {
+        std::fill( m_data, m_data + m_capa, '\0' );
+        std::copy( str, str + strlen( str ), m_data );
+        m_len = strlen( str );
+    }
+}
+DynamicString &amp; DynamicString::operator+= ( char c )
+{
+    _push_back( c ) ;
+    return *this ;
+}
+DynamicString &amp; DynamicString::operator+= ( char *s )
+{
+    _insert( m_len, s, s + strlen( s ) ) ;
+    return *this ;
+}
+DynamicString &amp; DynamicString::operator+= ( DynamicString &amp;str )
+{
+    _insert( m_len, str._begin(),str._end() ) ;
+    return *this ;
+}
+DynamicString &amp; DynamicString::operator= ( char c )
+{
+    _assign( 1, c ) ;
+    return *this ;
+}
+DynamicString &amp; DynamicString::operator= ( char *s )
+{
+    _assign( s ) ;
+    return *this ;
+}
+//template
+//    bool equal(InIt1 first, InIt1 last, InIt2 x);
+</code></pre></div></div>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#cplusplus">cplusplus</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#cplusplus">cplusplus</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/cplusplus/2007/12/15/%E4%B8%80%E4%B8%AA%E5%8A%A8%E6%80%81%E5%AD%97%E7%AC%A6%E4%B8%B2%E7%9A%84C++%E5%AE%9E%E7%8E%B0/" data-title="一个动态字符串的C++实现 | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/java/2007/08/21/Java-Settings/" title="Java Settings">
+  <strong>上一篇：</strong><br/>
+  <span>
+  Java Settings</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/cplusplus/2007/12/28/C++-socket%E7%A8%8B%E5%BA%8F/"  title="C++ socket程序">
+ <strong>下一篇：</strong><br/> 
+ <span>C++ socket程序
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

@@ -1,0 +1,1058 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>关于MSSQL数据大容量的导入导出小结 | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="关于MSSQL数据大容量的导入导出小结">
+    <meta property="og:url" content="/mssql/2013/07/18/%E5%85%B3%E4%BA%8EMSSQL%E6%95%B0%E6%8D%AE%E5%A4%A7%E5%AE%B9%E9%87%8F%E7%9A%84%E5%AF%BC%E5%85%A5%E5%AF%BC%E5%87%BA%E5%B0%8F%E7%BB%93/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="关于MSSQL数据大容量的导入导出小结">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/mssql/2013/07/18/%E5%85%B3%E4%BA%8EMSSQL%E6%95%B0%E6%8D%AE%E5%A4%A7%E5%AE%B9%E9%87%8F%E7%9A%84%E5%AF%BC%E5%85%A5%E5%AF%BC%E5%87%BA%E5%B0%8F%E7%BB%93/" title="关于MSSQL数据大容量的导入导出小结" itemprop="url">关于MSSQL数据大容量的导入导出小结</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2013-07-18 00:00:00 +0800" itemprop="datePublished"> 发表于 2013-07-18</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>关于MSSQL数据大容量的导入导出小结</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/*----------------------------------------------------------------
+
+-- Author  :feixianxxx(poofly)
+
+-- Date    :2010-03-29 14:04:14
+
+-- Version:
+
+--      Microsoft SQL Server 2008 (RTM) - 10.0.1600.22 (Intel X86) 
+
+Jul  9 2008 14:43:34 
+
+Copyright (c) 1988-2008 Microsoft Corporation
+
+Enterprise Evaluation Edition on Windows NT 6.1  (Build 7600: )
+
+
+----------------------------------------------------------------*/
+</code></pre></div></div>
+
+<p>1。关于大容量数据导入导出的一些方法</p>
+
+<p>SQL SERVER提供多种工具用于各种数据源的数据导入导出，这些数据源包括本文文件、ODBC数据源、OLE DB数据源、ASCII文本文件和EXCEL电子表格。</p>
+
+<p>2.常用工具</p>
+
+<p>DTS:数据转换服务导入导出向导或者DTS设计器创建DTS包</p>
+
+<p>使用SQL SERVER复制发布数据</p>
+
+<p>BCP命令提示实用工具实现SQL SERVER实例和数据文件之间的数据导入导出</p>
+
+<p>BULK INSERT实现从数据文件导入数据到SQL SERVER实例</p>
+
+<p>分布式查询实现从一个数据源选择数据插入到SQL SERVER实例</p>
+
+<p>SELECT INTO 语句插入数据表</p>
+
+<p>3.导入导出的数据</p>
+
+<p>1。导入数据的目标表必须存在。导出数据的目标文件如果存在，则将重写上面的内容。如果不存在，则BCP自动创建文件</p>
+
+<p>2。数据文件中的数据必须是字符格式或是先前由bcp工具生成的格式(本机格式)</p>
+
+<p>3。必须对相应的表拥有足够的权限</p>
+
+<p>4。数据导入导出工具的简单用法</p>
+
+<p>a.DTS</p>
+
+<p>DTS是一组图形工具和可编程对象，是开发者可以将取自完全的不同源的数据析取、转换并合并成一个或者多个。</p>
+
+<p>它的特点就是可以融合完全不同源的数据源 这在企业改进中应用很大 。</p>
+
+<p>这里涉及到一个DTS包，它是一个有组织的链接、DTS任务、DTS转换和工作流约束的集合。</p>
+
+<p>关于DTS的操作请参看相关具体文献。</p>
+
+<p>b.BCP</p>
+
+<p>它常用于将大量的数据从另外的程序转移到SQL SERVER表中。当然也可以用于将表中数据传输到数据文件中。</p>
+
+<p>下面是一些BCP的简单用法(关于很多的选项使用看相关文档)</p>
+
+<p>–前序,开启xp_cmdshell</p>
+
+<p>–关于xp_cmdshell的一些知识请看http://blog.csdn.net/feixianxxx/archive/2009/08/14/4445603.aspx</p>
+
+<p>EXEC sp_configure ‘show advanced options’, 1;RECONFIGURE;</p>
+
+<p>EXEC sp_configure ‘xp_cmdshell’, 1;RECONFIGURE;</p>
+
+<p>–环境</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>create table test
+
+(
+
+id int,
+
+value varchar(100)
+
+)
+
+go
+
+insert test values(1,'s1')
+
+insert test values(2,'s2')
+
+insert test values(3,'s3')
+
+insert test values(4,'s4')
+
+go
+</code></pre></div></div>
+
+<p>–1将表的数据导出到TEXT.txt文件中</p>
+
+<p>exec master..xp_cmdshell ‘bcp tempdb.dbo.test out e:/test.txt -c  -Usa -P123456’</p>
+
+<p>–如果是WINDOWS身份直接xec master..xp_cmdshell ‘bcp tempdb.dbo.test out e:/test.txt -T -c’</p>
+
+<p>–2将TEXT.txt文件中的数据复制到test1表</p>
+
+<p>select * into test1 from test where 1=2</p>
+
+<p>exec master..xp_cmdshell ‘bcp tempdb.dbo.test1 in e:/test.txt -c  -Usa -P123456’</p>
+
+<p>select * from test1</p>
+
+<p>–3将TEST表的ID字段复制到TEXT.txt中</p>
+
+<p>exec master..xp_cmdshell ‘bcp “SELECT id FROM tempdb.dbo.test” queryout e:/test.dat -T -c’</p>
+
+<p>–4将test表中的第一行移动到text.txt中</p>
+
+<p>exec master..xp_cmdshell ‘bcp “SELECT top 1 * from tempdb.dbo.test “  queryout e:/test.txt -c  -Usa -P123456’</p>
+
+<p>–关闭xp_cmdshell</p>
+
+<p>EXEC sp_configure ‘show advanced options’, 1;RECONFIGURE;</p>
+
+<p>EXEC sp_configure ‘xp_cmdshell’, 0;RECONFIGURE;</p>
+
+<p>c.BULK INSERT</p>
+
+<p>它只能用于数据导入到SQL SERVER实例中，但是我们一般会选择使用它，因为它比BCP使用工具快。</p>
+
+<p>小例子：</p>
+
+<p>–truncate table test</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>BULK INSERT tempdb..test
+    FROM 'E:/test.txt'
+    WITH 
+    (
+        FIELDTERMINATOR =',',--字段分割符号
+        ROWTERMINATOR ='/n'--换行符号
+    )
+
+select * from test 
+
+/*
+id          value
+----------- -----------
+1            s1
+2            asds
+3            sadsa
+100          2asda*/
+</code></pre></div></div>
+
+<p>ps：只写最简单用法,具体参数很多，参考MSDN</p>
+
+<p>d.分布式查询</p>
+
+<p>–包含访问OLE DB 数据源中的远程数据所需的全部连接信息。</p>
+
+<p>–当访问链接服务器中的表时，这种方法是一种替代方法，并且是一种使用OLE DB 连接并访问远程数据的一次性的临时方法。</p>
+
+<p>–对于较频繁引用OLE DB 数据源的情况，请改为使用链接服务器。</p>
+
+<p>–A.将OPENROWSET 与SELECT 和SQL Server Native Client OLE DB 访问接口一起使用（MSDN）</p>
+
+<p>以下示例使用 SQL Server Native Client OLE DB 访问接口访问 TEST.A 表，该表位于远程服务器 SERVER1 上的 POOFLY 数据库中.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SELECT a.*
+FROM OPENROWSET('SQLNCLI', 'Server=SERVER1;Trusted_Connection=yes;',
+     'SELECT GroupName, Name, DepartmentID
+      FROM POOFLY.TEST.A
+      ORDER BY GroupName, Name') AS a;
+</code></pre></div></div>
+
+<p>–B. 使用Microsoft OLE DB Provider for Jet（MSDN）</p>
+
+<p>以下示例通过 Microsoft OLE DB Provider for Jet 访问 Microsoft Access Northwind 数据库中的 Customers 表。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SELECT CustomerID, CompanyName
+   FROM OPENROWSET('Microsoft.Jet.OLEDB.4.0',
+      'C:/Program Files/Microsoft Office/OFFICE11/SAMPLES/Northwind.mdb';
+      'admin';'',Customers)
+GO
+</code></pre></div></div>
+
+<p>–c.使用OPENROWSET 将文件数据大容量插入varchar(max) 列中</p>
+
+<p>/*</p>
+
+<p>为了导入大型对象数据，OPENROWSET BULK 子句支持三个选项，允许用户以单行或单列行集导入数据文件的内容。</p>
+
+<p>你可以指定其中一个大型对象选项，而不是使用格式化文件。</p>
+
+<p>大型对象选项包括：</p>
+
+<p>SINGLE_BLOB</p>
+
+<p>以单行读取data_file 的内容，以varbinary(max) 类型的单列行集返回内容。</p>
+
+<p>SINGLE_CLOB</p>
+
+<p>以字符读取指定数据文件的内容，以varchar(max) 类型的单行、单列行集返回内容，使用的是当前数据库的排序规则，例如文本或Microsoft Word 文档。</p>
+
+<p>SINGLE_NCLOB</p>
+
+<p>以Unicode 读取指定数据文件的内容，以nvarchar(max) 类型的单行、单列行集返回内容，并使用当前数据库的排序规则。</p>
+
+<p>*/</p>
+
+<p>以下示例创建一个用于演示的小型表，并将名为 Text1.txt 的文件中的文件数据插入 varchar(max) 列中。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CREATE TABLE my_Test(Document varchar(max))
+GO
+INSERT INTO  my_Test 
+ select * FROM OPENROWSET(BULK N'E:/test.txt', SINGLE_CLOB) AS Document
+GO
+select * from my_Test
+/*
+Document
+-------------------------------------------------------   
+ASDSADASDSADSADSAFKJHFAS HKLASJHASHBKDSAHKJDHSAKJDHSAKDHSAKDHSA
+*/
+</code></pre></div></div>
+
+<p>e.SELECT INTO</p>
+
+<p>关于这个的用法 相信大家都很清楚了 我就不说明了。</p>
+
+<p>5。优化导入导出数据的一些方法</p>
+
+<blockquote>
+  <p>1。使用最小日志记录:</p>
+</blockquote>
+
+<blockquote>
+  <blockquote>
+    <p>a.恢复模式是简单模式或者大容量日志记录模式。如果你是完整模式，可以在进行操作前改成大容量日志模式，插入后改回来<br />
+b.目的表没有触发器,没有索引,指定了TABLOCK</p>
+  </blockquote>
+</blockquote>
+
+<blockquote>
+  <p>2。将数据从多个客户端并行导入到单个表:</p>
+</blockquote>
+
+<blockquote>
+  <blockquote>
+    <p>a.如果是完整恢复模式，改成大容量日志模式<br />
+b.指定了TABLOCK<br />
+c.表上没有索引</p>
+  </blockquote>
+</blockquote>
+
+<blockquote>
+  <p>3。使用批处理:通过设置BCP或者BULK INSERT的相关选项，是用于可以指定在操作过程中发给SQL的每个批处理的行数。<br />
+4。禁用触发器和约束:默认情况下是禁用的。如果要检查，可以在复制完成后进行一次更新操作(当然值不可以变) <br />
+5。对数据文件中的数据排序:通过设置ORDER提示,提高性能。默认数据文件是不排序的。<br />
+6。控制锁定行为:指定大容量操作过程获得一个大容量更新表级锁，这样可以减少表上锁的争夺。<br />
+7。回避DEFAULT:通过设置相关选项,回避在复制数据到表中时，对有DEFAULT的列插入默认值，而是改成在列中值为NULL。</p>
+</blockquote>
+
+<p>原文地址: http://blog.csdn.net/feixianxxx/article/details/5427485</p>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#mssql">mssql</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#mssql">mssql</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/mssql/2013/07/18/%E5%85%B3%E4%BA%8EMSSQL%E6%95%B0%E6%8D%AE%E5%A4%A7%E5%AE%B9%E9%87%8F%E7%9A%84%E5%AF%BC%E5%85%A5%E5%AF%BC%E5%87%BA%E5%B0%8F%E7%BB%93/" data-title="关于MSSQL数据大容量的导入导出小结 | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/mssql/2013/07/18/SQLServer%E5%AF%BC%E5%85%A5%E5%AF%BC%E5%87%BA%E6%95%B0%E6%8D%AE%E8%AF%AD%E5%8F%A5%E5%B0%8F%E7%BB%93/" title="SQLServer导入导出数据语句小结">
+  <strong>上一篇：</strong><br/>
+  <span>
+  SQLServer导入导出数据语句小结</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/eng/2013/07/18/%E6%A0%87%E7%82%B9%E7%AC%A6%E5%8F%B7%E7%9A%84%E8%8B%B1%E6%96%87%E8%AF%B4%E6%B3%95/"  title="标点符号的英文说法">
+ <strong>下一篇：</strong><br/> 
+ <span>标点符号的英文说法
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

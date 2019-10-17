@@ -1,0 +1,1042 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>SQLServer性能调优(方法论) | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="SQLServer性能调优(方法论)">
+    <meta property="og:url" content="/mssql/2014/02/24/SQLServer%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98(%E6%96%B9%E6%B3%95%E8%AE%BA)/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="SQLServer性能调优(方法论)">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/mssql/2014/02/24/SQLServer%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98(%E6%96%B9%E6%B3%95%E8%AE%BA)/" title="SQLServer性能调优(方法论)" itemprop="url">SQLServer性能调优(方法论)</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2014-02-24 00:00:00 +0800" itemprop="datePublished"> 发表于 2014-02-24</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>SQL Server 性能调优（方法论）</p>
+
+<p>性能调优很难有一个固定的理论。调优本来就是处理一些特殊的性能问题。<br />
+通常一旦拿到一个服务器那么就先做一下性能检查。查看整个数据库是运行在什么样的状况下的。<br />
+分析收集的数据想像这种情况是否合理。</p>
+
+<p>一个数据库操作的时间都是执行时间+等待时间，在无法估计执行时间的时候看要看看等待时间。<br />
+那么等待时间分为锁等待时间和资源等待时间。<br />
+那么就先用　sys.dm_os_wait_stats动态性能视图，查看主要的状况。如果pageiolatch_sh等待很大，那么就说明，session在等待buffer pool的页。当一个session要select一些数据，但是刚刚好，这些数据并没有在buffer pool 中，那么sql server 就会分配一些缓存这些缓存是属于buffer pool 的，用来存放从磁盘读取出来的数据，在读取的时候都会给这些缓存上latch（可以看成是锁）。当存在io瓶颈的时候，那么磁盘上的数据不能立即读到buffer pool 中就会出现等待latch的情况。这个可能是io过慢，也有可能是在做一些多余的io造成的。<br />
+那么接下来查看sys.dm_io_virtual_file_stats 性能视图来确定哪个数据库造成了怎么大的延迟。并且通过physical disk \avg.disk reads/sec和physical disk\avg.disk writes/sec来确定到底数据库有多少io负载。<br />
+接下来通过 sys.dm_exec_query_stats 查看执行计划，通过查看高物理读的sql和执行计划看看有没有优化的空间。如添加索引，修改sql，优化引擎访问数据的方法。<br />
+有可能，sql 语句已经不能再优化，但是性能还是不行，往往这种sql是报表查询类的sql，会从磁盘中读取大量数据，很多数据往往在buffer pool 找不到那么就会发生大量的pageiolatch_sh等待。这时，我们就要看看是否是内存不足照成的，用perfmon 查看 page life expectancy(页寿命长度)，free list stalls/sec(等待空页的次数)和Lazy writes/sec。 page life expectancy 波动很厉害，free list stalls/sec 一直大于0，Lazy writes/sec 的量也很大，那么就说明buffer pool 不够大。但是也有可能是sql 写的不严谨，select了很多没必要的数据。<br />
+在上面的troubleshooting 过程中，很容易走入一个误区，sys.dm_io_virtual_file_stats 和 一些性能指标，就会很容易断定说io有问题，需要额外的预算来扩展io的性能，但是扩展io是比较贵的。io性能不理想很有可能miss index或者buffer pool的压力造成的。如果单纯的添加物理设备，但是没有找到根本原因，当数据量增长后，依然会出现相同的问题。<br />
+wait event的基本troubleshooting<br />
+wait statistics 是SQLOS跟踪得到的<br />
+SQLOS 是一个伪操作系统，是SQL Server 的一部分，有调度线程，内存管理等其他操作。<br />
+SQLOS比windows调度器更好的调度sql server 线程。SQLOS的调度器间的交互，会比强占式的系统调度又更好的并发性<br />
+当sql server 等待一个sql 执行的时候，等待的时间会被sqlos捕获，这些时间都会存放在 sys.dm_os_wait_stats性能视图中。各种等待时间的长度，并且和其他的性能视图，性能计数器结合，可以很明显的看出性能问题。<br />
+对于未知的性能问题sys.dm_os_wait_stats 用来判断性能问题是很好用的，但是在服务器重启或者dbcc 命令 清空 sys.dm_os_wait_stats后 会很好分析，时间一长就很难分析，因为等待时间是累计的，搞不清楚哪个是你刚刚执行出来的时间。当然可以考虑 先捕获一份，当sql 执行完后，再捕获一份，进行比较。<br />
+查看wait event，得到的信息 只是实际性能问题的其中一个症状，为了更利用wait event 信息，你需要了解资源等待和非资源等待的区别，还有需要了解其他troubleshooting信息。<br />
+在sql server中有一部分的sql是没问题的，可以使用一下sql 语句查看说有的 session的wait event</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SELECT DISTINCT
+wt.wait_type
+FROM sys.dm_os_waiting_tasks AS wt
+JOIN sys.dm_exec_sessions AS s ON wt.session_id = s.session_id
+WHERE s.is_user_process = 0
+</code></pre></div></div>
+
+<p>因为很大一部分是正常的，所以提供了一个sql 来过滤正常查询操作</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SELECT TOP 10
+wait_type ,
+max_wait_time_ms wait_time_ms ,
+signal_wait_time_ms ,
+wait_time_ms - signal_wait_time_ms AS resource_wait_time_ms ,
+100.0 * wait_time_ms / SUM(wait_time_ms) OVER ( )
+AS percent_total_waits ,
+100.0 * signal_wait_time_ms / SUM(signal_wait_time_ms) OVER ( )
+AS percent_total_signal_waits ,
+100.0 * ( wait_time_ms - signal_wait_time_ms )
+/ SUM(wait_time_ms) OVER ( ) AS percent_total_resource_waits
+FROM sys.dm_os_wait_stats
+WHERE wait_time_ms &gt; 0 -- remove zero wait_time
+AND wait_type NOT IN -- filter out additional irrelevant waits
+( 'SLEEP_TASK', 'BROKER_TASK_STOP', 'BROKER_TO_FLUSH',
+'SQLTRACE_BUFFER_FLUSH','CLR_AUTO_EVENT', 'CLR_MANUAL_EVENT',
+'LAZYWRITER_SLEEP', 'SLEEP_SYSTEMTASK', 'SLEEP_BPOOL_FLUSH',
+'BROKER_EVENTHANDLER', 'XE_DISPATCHER_WAIT', 'FT_IFTSHC_MUTEX',
+'CHECKPOINT_QUEUE', 'FT_IFTS_SCHEDULER_IDLE_WAIT',
+'BROKER_TRANSMITTER', 'FT_IFTSHC_MUTEX', 'KSOURCE_WAKEUP',
+'LAZYWRITER_SLEEP', 'LOGMGR_QUEUE', 'ONDEMAND_TASK_QUEUE',
+'REQUEST_FOR_DEADLOCK_SEARCH', 'XE_TIMER_EVENT', 'BAD_PAGE_PROCESS',
+'DBMIRROR_EVENTS_QUEUE', 'BROKER_RECEIVE_WAITFOR',
+'PREEMPTIVE_OS_GETPROCADDRESS', 'PREEMPTIVE_OS_AUTHENTICATIONOPS',
+'WAITFOR', 'DISPATCHER_QUEUE_SEMAPHORE', 'XE_DISPATCHER_JOIN',
+'RESOURCE_QUEUE' )
+ORDER BY wait_time_ms DESC
+</code></pre></div></div>
+
+<p>检查wait event一般只关注前几个等待信息，查看高等待时间的等待类型。<br />
+CXPACKET：<br />
+     表明并发查询的等待时间，通常不会立刻产生问题，也可能是因为别的性能问题，导致CXPACKET等待过高。<br />
+SOS_SCHEDULER_YIELD<br />
+     任务在执行的时候被调度器中断，被放入可执行队列等待被运行。这个时间过长可能是cpu压力造成的。<br />
+THREADPOOL<br />
+     一个任务必须绑定到一个工作任务才能执行，threadpool 就是task等待被绑定的时间。出现threadpool过高可能是，cpu不够用，也可能是大量的并发查询。<br />
+LCK_*<br />
+     这中等待类型过高，说明可能session发生堵塞，可以看sys.dm_db_index_operational_stats 获得更深入的内容<br />
+PAGEIOLATCH_<em>,IO_COMPLETION,WRITELOG<br />
+     这些往往和磁盘的io瓶颈关联，根本原因往往都是效率极差的查询操作消费了过多的内存。PAGEIOLATCH_</em>和数据库文件的读写延迟相关。writelog和事务日               志文件的读写相关。这些等待最好和sys.dm_io_virtual_file_stats 关联确定问题是发生在数据库，数据文件，磁盘还是整个实例。<br />
+PAGELATCH_*<br />
+     在buffer pool 中非io等待latch。PAGELATCH_* 大量的等待通常是分配冲突。当tempdb中大量的对象要被删除或者创建，那么系统就会对SGAM，GAM和PFS的分配发生冲突。<br />
+LATCH_*<br />
+     LATCH_*和内部cache的保护，这种等待过高会发生大量的问题。可以通过 sys.dm_os_latch_stats 查看详细内容。<br />
+ASYNC_NETWORK_IO<br />
+     这个等待不完全表明网络的瓶颈。事实上多数情况下是客户端程序一行一行的处理sql server 的结果集导致。发生这种问题那么就修改客户端代码。</p>
+
+<p>简单的解释了主要的等待，减少在分析wait event 的时候走的弯路。<br />
+为了确定是否已经排除问题可以用DBCC SQLPERF(‘sys.dm_os_wait_stats’, clear)清除wait event。也可以用2个wait event 信息相减。</p>
+
+<p>虚拟文件信息（virtual file Statistics）<br />
+通常，当使用wait event 分析问题的时候，都为认为很想io的性能问题。但是wait event 并不能说明io是怎么发生的，所以很有可能会误判,这就是为什么要使用sys.dm_os_latch_stats 查看的原因，可以查看累计的io统计信息，每个文件的读写信息，日志文件的读写，可以计算读写的比例，io等待的次数，等待的时间。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SELECT DB_NAME(vfs.database_id) AS database_name ,
+vfs.database_id ,
+vfs.FILE_ID ,
+io_stall_read_ms / NULLIF(num_of_reads, 0) AS avg_read_latency ,
+io_stall_write_ms / NULLIF(num_of_writes, 0) AS avg_write_latency ,
+io_stall / NULLIF(num_of_reads + num_of_writes, 0) AS avg_total_latency ,
+num_of_bytes_read / NULLIF(num_of_reads, 0) AS avg_bytes_per_read ,
+num_of_bytes_written / NULLIF(num_of_writes, 0) AS avg_bytes_per_write ,
+vfs.io_stall ,vfs.num_of_reads ,vfs.num_of_bytes_read ,vfs.io_stall_read_ms 
+,vfs.num_of_writes ,vfs.num_of_bytes_written ,vfs.io_stall_write_ms ,
+size_on_disk_bytes / 1024 / 1024. AS size_on_disk_mbytes ,physical_name
+FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS vfs
+JOIN sys.master_files AS mf ON vfs.database_id = mf.database_id
+AND vfs.FILE_ID = mf.FILE_ID
+ORDER BY avg_total_latency DESC
+</code></pre></div></div>
+
+<p>查看是否读写过大，平均延时是否过高。通过这个可以知道是否是io的问题。<br />
+如果数据文件和日志文件是共享磁盘队列的，avg_total_latency 比预期的要高，那么就有可能是io的问题了<br />
+如果当前的数据库是用来归档数据到比较慢的存储中，可能会有很高的PAGEIOLATCH_*和io_stall那么我们就需要确定怎么高的等待是否属于归档的线程，因此在troubleshooting的时候要注意你的服务器的类型。<br />
+如果你的磁盘读写比例是1:10，而且又很高的 avg_total_latency 那么就考虑把磁盘队列换成 raid5，为io读提供更多的主轴。</p>
+
+<p>性能指标<br />
+在最开始的troubleshooting，性能指标是非常有用的。也可以用来验证自己的判断是否正确。<br />
+PAL 是一个很好的性能日志分析工具http://pal.codeplex.com. 可惜没有中文版，当然可以去codeplex 下载源代码自己修改。这个工具内嵌了性能收集集合，也就是通常要收集的一些性能指标。也内嵌了阀值模板，可以在性能指标收集完之后做分析。</p>
+
+<p>sql server 对自己的性能指标有对应的性能视图 sys.dm_os_performance_counters。对于性能指标有些是累计值，因此需要做2个快照，相减计算结果。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DECLARE @CounterPrefix NVARCHAR(30)
+SET @CounterPrefix = CASE WHEN @@SERVICENAME = 'MSSQLSERVER'
+THEN 'SQLServer:'
+ELSE 'MSSQL$' + @@SERVICENAME + ':'
+END ;
+-- Capture the first counter set
+SELECT CAST(1 AS INT) AS collection_instance ,
+[OBJECT_NAME] ,counter_name ,instance_name ,cntr_value ,cntr_type ,CURRENT_TIMESTAMP AS collection_time
+INTO #perf_counters_init
+FROM sys.dm_os_performance_counters
+WHERE ( OBJECT_NAME = @CounterPrefix + 'Access Methods'
+AND counter_name = 'Full Scans/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Access Methods'
+AND counter_name = 'Index Searches/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Buffer Manager'
+AND counter_name = 'Lazy Writes/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Buffer Manager'
+AND counter_name = 'Page life expectancy')
+OR ( OBJECT_NAME = @CounterPrefix + 'General Statistics'
+AND counter_name = 'Processes Blocked')
+OR ( OBJECT_NAME = @CounterPrefix + 'General Statistics'
+AND counter_name = 'User Connections')
+OR ( OBJECT_NAME = @CounterPrefix + 'Locks'
+AND counter_name = 'Lock Waits/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Locks'
+AND counter_name = 'Lock Wait Time (ms)'
+)OR ( OBJECT_NAME = @CounterPrefix + 'SQL Statistics'
+AND counter_name = 'SQL Re-Compilations/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Memory Manager'
+AND counter_name = 'Memory Grants Pending')
+OR ( OBJECT_NAME = @CounterPrefix + 'SQL Statistics'
+AND counter_name = 'Batch Requests/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'SQL Statistics'
+AND counter_name = 'SQL Compilations/sec')
+-- Wait on Second between data collection
+WAITFOR DELAY '00:00:01'
+-- Capture the second counter set
+SELECT CAST(2 AS INT) AS collection_instance ,
+OBJECT_NAME ,counter_name ,instance_name ,cntr_value ,cntr_type ,CURRENT_TIMESTAMP AS collection_time
+INTO #perf_counters_second
+FROM sys.dm_os_performance_counters
+WHERE ( OBJECT_NAME = @CounterPrefix + 'Access Methods'
+AND counter_name = 'Full Scans/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Access Methods'
+AND counter_name = 'Index Searches/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Buffer Manager'
+AND counter_name = 'Lazy Writes/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Buffer Manager'
+AND counter_name = 'Page life expectancy')
+OR ( OBJECT_NAME = @CounterPrefix + 'General Statistics'
+AND counter_name = 'Processes Blocked')
+OR ( OBJECT_NAME = @CounterPrefix + 'General Statistics'
+AND counter_name = 'User Connections'
+)OR ( OBJECT_NAME = @CounterPrefix + 'Locks'
+AND counter_name = 'Lock Waits/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Locks'
+AND counter_name = 'Lock Wait Time (ms)')
+OR ( OBJECT_NAME = @CounterPrefix + 'SQL Statistics'
+AND counter_name = 'SQL Re-Compilations/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'Memory Manager'
+AND counter_name = 'Memory Grants Pending')
+OR ( OBJECT_NAME = @CounterPrefix + 'SQL Statistics'
+AND counter_name = 'Batch Requests/sec')
+OR ( OBJECT_NAME = @CounterPrefix + 'SQL Statistics'
+AND counter_name = 'SQL Compilations/sec')
+-- Calculate the cumulative counter values
+SELECT i.OBJECT_NAME ,i.counter_name ,i.instance_name ,
+CASE WHEN i.cntr_type = 272696576
+THEN s.cntr_value - i.cntr_value
+WHEN i.cntr_type = 65792 THEN s.cntr_value
+END AS cntr_value
+FROM #perf_counters_init AS i
+JOIN #perf_counters_second AS s
+ON i.collection_instance + 1 = s.collection_instance AND i.OBJECT_NAME = s.OBJECT_NAME
+AND i.counter_name = s.counter_name AND i.instance_name = s.instance_name
+ORDER BY OBJECT_NAME
+-- Cleanup tables
+DROP TABLE #perf_counters_init
+DROP TABLE #perf_counters_second
+</code></pre></div></div>
+
+<p>主要收集一下性能指标：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SQLServer:Access Methods\Full Scans/sec
+SQLServer:Access Methods\Index Searches/sec
+SQLServer:Buffer Manager\Lazy Writes/sec
+SQLServer:Buffer Manager\Page life expectancy
+SQLServer:Buffer Manager\Free list stalls/sec
+SQLServer:General Statistics\Processes Blocked
+SQLServer:General Statistics\User Connections
+SQLServer:Locks\Lock Waits/sec
+SQLServer:Locks\Lock Wait Time (ms)
+SQLServer:Memory Manager\Memory Grants Pending
+SQLServer:SQL Statistics\Batch Requests/sec
+SQLServer:SQL Statistics\SQL Compilations/sec
+SQLServer:SQL Statistics\SQL Re-Compilations/sec
+</code></pre></div></div>
+
+<p>这里又2个 Access Methods 性能指标，说明了访问数据库不同的方式，full scans/sec 表示了发生在数据库中索引和表扫描的次数。<br />
+如果io出现瓶颈，并且伴随着大量的扫描出现，那么很有可能就是miss index 或者sql 代码不理想照成的。那么多少次数到多少时可以认为有问题呢？在通常状况下 index searches/sec 比 full scans/sec 高800-1000，如果 full sacans/sec过高，那么很有可能是miss index 和多余的io操作引起的。</p>
+
+<p>Buffer Manager 和 memory manager 通常用来检测是否存在内存压力，lazy writes/sec，page life expectancy ,free list stalls/sec 用来佐证是否处于内存压力。<br />
+很多网上的文章和论坛都说，如果Page Life expectancy 低于300秒的时候，存在内存压力。但是这只是对于以前只有4g内存的服务器的，现在的服务器一般都是32g以上内存5分钟的阀值已经不能在说明问题了。300秒虽然已经不再适用，但是我们可以用300来作为基值来计算当前的PLE的阀值 (32/4)*300 = 2400那么如果是32g的服务器设置为2400可能会比较合适。</p>
+
+<p>如果PEL一直低于阀值，并且 lazy writes/sec一直很高，那么有可能是buffer pool压力造成的。如果这个时候full scans/sec值也很高，那么请先检查是不是miss index 或者 读取了多余的数据。<br />
+general statistics\processes blocked,locks\lock waits/sec和locks\lock wait time(ms)如果这3个值都是非0那么数据库会发生堵塞。<br />
+SQL Statistics 计数器说明了sql 的编译或者重编译的速度，sql compilations/sec和 batch requests/sec 成正比，那么很有可能大量sql 访问都是 ad hoc方式无法通过执行计划缓冲优化它们，如果 SQL Re-compilations/sec 和 batch requests/sec 成正比，那么应用程序中可能又强制重新编译的选项。</p>
+
+<p>memory manager\momory grants pending 表示等待授权内存的等待，如果这个值很高那么增加内存可能会有效果。但是也有可能是大的排序，hash操作也可能造成，可以使用调整索引或者查询来减小这种状况。</p>
+
+<p>执行计划缓冲的使用<br />
+执行计划缓冲是sql server 的内部组件，可以使用 sys.dm_exec_query_stats 查询，下面有个sql查询 物理读前十的计划</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SELECT TOP 10 execution_count ,statement_start_offset AS stmt_start_offset ,sql_handle ,plan_handle ,
+total_logical_reads / execution_count AS avg_logical_reads 
+,total_logical_writes / execution_count AS avg_logical_writes 
+,total_physical_reads / execution_count AS avg_physical_reads ,t.text
+FROM sys.dm_exec_query_stats AS s
+CROSS APPLY sys.dm_exec_sql_text(s.sql_handle) AS t
+ORDER BY avg_physical_reads DESC
+</code></pre></div></div>
+
+<p>在执行计划里面的这些值可以看出哪些查询物理io操作很频繁，也可以和wait event 和 虚拟文件结合分析有问题的io操作。<br />
+我们也可以使用sys.dm_exec_query_plan()查看存在内存里面的执行计划。<br />
+这里又2本书深入的讲述了查询执行计划：《SQL Server 2008 Query performance tuning distilled》，《Inside Microsoft SQL Server 2008:T-SQL Querying》。<br />
+sys.dm_exec_query_stats还用来查询 cpu时间，最长执行时间，或者最频繁的sql<br />
+在sql server 2008中加入了2个额外的列，query_hash,query_plan_hash用来聚合相似的sql的。对于ad hoc 过大的服务器可以用来分析 相似的sql，不同的编译的总数。</p>
+
+<p>总结</p>
+
+<p>上面各个部分都讲了一个思维，一个思路。要想性能调优调的好，那么就先系统体系结构，你要清楚 如前面说的miss index 一旦发生，那么不知会影响io，还会影响内存和cpu。接下来要会分析，从一开始的简单的性能统计信息，往下分析，用其他统计信息排除问题，得到性能问题的真正原因。</p>
+
+<p>文章来源于：Troubleshooting SQL Server: A Guide for the Accidental DBA 如果看不懂的或者想更深入了解的，可以看原文。</p>
+
+<p>原文地址: http://www.myext.cn/mssql/49346_16.html</p>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#mssql">mssql</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#mssql">mssql</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/mssql/2014/02/24/SQLServer%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98(%E6%96%B9%E6%B3%95%E8%AE%BA)/" data-title="SQLServer性能调优(方法论) | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/mssql/2014/02/24/SQLServer2008%E4%BA%8B%E5%8A%A1%E6%97%A5%E5%BF%97%E7%89%A9%E7%90%86%E6%96%87%E4%BB%B6%E5%B0%BA%E5%AF%B8%E6%97%A0%E6%B3%95%E5%87%8F%E5%B0%8F%E7%9A%84%E8%A7%A3%E5%86%B3%E5%8A%9E%E6%B3%95(%E5%90%AB%E6%97%A5%E5%BF%97%E6%94%B6%E7%BC%A9(shrink)%E6%8A%80%E5%B7%A7)/" title="SQLServer2008事务日志物理文件尺寸无法减小的解决办法(含日志收缩(shrink)技巧)">
+  <strong>上一篇：</strong><br/>
+  <span>
+  SQLServer2008事务日志物理文件尺寸无法减小的解决办法(含日志收缩(shrink)技巧)</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/mssql/2014/02/24/%E8%99%9A%E6%8B%9F%E6%97%A5%E5%BF%97%E6%96%87%E4%BB%B6%E5%89%96%E6%9E%90(DBCC_LOGINFO)/"  title="虚拟日志文件剖析(DBCC_LOGINFO)">
+ <strong>下一篇：</strong><br/> 
+ <span>虚拟日志文件剖析(DBCC_LOGINFO)
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

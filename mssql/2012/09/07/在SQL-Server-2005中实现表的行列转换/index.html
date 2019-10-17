@@ -1,0 +1,956 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>在SQLServer2005中实现表的行列转换 | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="在SQLServer2005中实现表的行列转换">
+    <meta property="og:url" content="/mssql/2012/09/07/%E5%9C%A8SQL-Server-2005%E4%B8%AD%E5%AE%9E%E7%8E%B0%E8%A1%A8%E7%9A%84%E8%A1%8C%E5%88%97%E8%BD%AC%E6%8D%A2/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="在SQLServer2005中实现表的行列转换">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/mssql/2012/09/07/%E5%9C%A8SQL-Server-2005%E4%B8%AD%E5%AE%9E%E7%8E%B0%E8%A1%A8%E7%9A%84%E8%A1%8C%E5%88%97%E8%BD%AC%E6%8D%A2/" title="在SQLServer2005中实现表的行列转换" itemprop="url">在SQLServer2005中实现表的行列转换</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2012-09-07 00:00:00 +0800" itemprop="datePublished"> 发表于 2012-09-07</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>[转载文章]</p>
+
+<p>在SQL Server 2005中实现表的行列转换</p>
+
+<p>PIVOT和UNPIVOT关系运算符是SQL Server 2005提供的新增功能，因此，对升级到SQL Server 2005的数据库使用PIVOT和UNPIVOT时，数据库的兼容级别必须设置为90（可以使用sp_dbcmptlevel存储过程设置兼容级别）。</p>
+
+<p>在查询的FROM子句中使用PIVOT和UNPIVOT，可以对一个输入表值表达式执行某种操作，以获得另一种形式的表。PIVOT运算符将输入表的行旋转为列，并能同时对行执行聚合运算。而UNPIVOT运算符则执行与PIVOT运算符相反的操作，它将输入表的列旋转为行。</p>
+
+<p>在FROM子句中使用PIVOT和UNPIVOT关系运算符时的语法格式如下：</p>
+
+<p>[ FROM { ＜table_source＞ } [ ,…n ] ]</p>
+
+<p>＜table_source＞ ::= {<br />
+　table_or_view_name [ [ AS ] table_alias ]<br />
+　＜pivoted_table＞ | ＜unpivoted_table＞<br />
+}</p>
+
+<p>＜pivoted_table＞ ::=table_source PIVOT ＜pivot_clause＞ table_alias</p>
+
+<p>＜pivot_clause＞ ::=( aggregate_function ( value_column )<br />
+　FOR pivot_column<br />
+　　IN ( ＜column_list＞ )<br />
+)</p>
+
+<p>＜unpivoted_table＞ ::=table_source UNPIVOT ＜unpivot_clause＞ table_alias</p>
+
+<p>＜unpivot_clause＞ ::=( value_column FOR pivot_column IN ( ＜column_list＞ ) )</p>
+
+<p>＜column_list＞ ::= column_name [ , … ] table_source PIVOT ＜pivot_clause＞</p>
+
+<p>指定对table_source表中的pivot_column列进行透视。table_source可以是一个表、表表达式或子查询。</p>
+
+<p>aggregate_function</p>
+
+<p>系统或用户定义的聚合函数。注意：不允许使用COUNT(*)系统聚合函数。</p>
+
+<p>value_column</p>
+
+<p>PIVOT运算符用于进行计算的值列。与UNPIVOT一起使用时，value_column不能是输入table_source中的现有列的名称。</p>
+
+<p>FOR pivot_column</p>
+
+<p>PIVOT运算符的透视列。pivot_column必须是可隐式或显式转换为nvarchar()的类型。</p>
+
+<p>使用UNPIVOT时，pivot_column是从table_source中提取输出的列名称，table_source中不能有该名称的现有列。</p>
+
+<p>IN ( column_list )</p>
+
+<p>在PIVOT子句中，column_list列出pivot_column中将成为输出表的列名的值。</p>
+
+<p>在UNPIVOT子句中，column_list列出table_source中将被提取到单个pivot_column中的所有列名。</p>
+
+<p>table_alias</p>
+
+<p>输出表的别名。</p>
+
+<p>UNPIVOT ＜ unpivot_clause ＞</p>
+
+<p>指定将输入表中由column_list指定的多个列的值缩减为名为pivot_column的单个列。</p>
+
+<p>常见的可能会用到PIVOT的情形是：需要生成交叉表格报表以汇总数据。交叉表是使用较为广泛的一种表格式，例如，图5-4所示的产品销售表就是一个典型的交叉表，其中的月份和产品种类都可以继续添加。但是，这种格式在进行数据表存储的时候却并不容易管理，要存储图5-4这样的表格数据，数据表通常需要设计为图5-5这样的结构。这样就带来一个问题，用户既希望数据容易管理，又希望能够生成一种能够容易阅读的表格数据。好在PIVOT为这种转换提供了便利。</p>
+
+<p>图5-4 产品销售表 图5-5 数据表结构</p>
+
+<p>假设Sales.Orders表中包含有ProductID（产品ID）、OrderMonth（销售月份）和SubTotal（销售额）列，并存储有如表5-2所示的内容。</p>
+
+<p>表5-2 Sales.Orders表中的内容<br />
+ProductID	OrderMonth	SubTotal<br />
+1	5	100.00<br />
+1	6	100.00<br />
+2	5	200.00<br />
+2	6	200.00<br />
+2	7	300.00<br />
+3	5	400.00<br />
+3	5	400.00</p>
+
+<p>执行下面的语句：</p>
+
+<p>SELECT ProductID, [5] AS 五月, [6] AS 六月, [7] AS 七月<br />
+FROM<br />
+Sales.Orders PIVOT<br />
+(<br />
+SUM (Orders.SubTotal)<br />
+FOR Orders.OrderMonth IN<br />
+( [5], [6], [7] )<br />
+) AS pvt</p>
+
+<p>ORDER BY ProductID;</p>
+
+<p>在上面的语句中，Sales.Orders是输入表，Orders.OrderMonth是透视列（pivot_column），Orders.SubTotal是值列（value_column）。上面的语句将按下面的步骤获得输出结果集：</p>
+
+<p>a．PIVOT首先按值列之外的列（ProductID和OrderMonth）对输入表Sales.Orders进行分组汇总，类似执行下面的语句：</p>
+
+<p>SELECT ProductID,<br />
+OrderMonth,<br />
+SUM (Orders.SubTotal) AS SumSubTotal<br />
+FROM Sales.Orders<br />
+GROUP BY ProductID,OrderMonth;</p>
+
+<p>这时候将得到一个如表5-3所示的中间结果集。其中只有ProductID为3的产品由于在5月有2笔销售记录，被累加到了一起（值为800）。<br />
+表5-3 Sales.Orders表经分组汇总后的结果</p>
+
+<p>ProductID	OrderMonth	SumSubTotal<br />
+1	5	100.00<br />
+1	6	100.00<br />
+2	5	200.00<br />
+2	6	200.00<br />
+2	7	300.00<br />
+3	5	800.00</p>
+
+<p>b．PIVOT根据FOR Orders.OrderMonth IN指定的值5、6、7，首先在结果集中建立名为5、6、7的列，然后从图5-3所示的中间结果中取出OrderMonth列中取出相符合的值，分别放置到5、6、7的列中。此时得到的结果集的别名为pvt（见语句中AS pvt的指定）。结果集的内容如表5-4所示。</p>
+
+<p>表5-4 使用FOR Orders.OrderMonth IN( [5], [6], [7] )后得到的结果集<br />
+ProductID	5	6	7<br />
+1	100.00	100.00	NULL<br />
+2	200.00	200.00	200.00<br />
+3	800.00	NULL	NULL</p>
+
+<p>c．最后根据SELECT ProductID, [5] AS 五月, [6] AS 六月, [7] AS 七月FROM的指定，从别名pvt结果集中检索数据，并分别将名为5、6、7的列在最终结果集中重新命名为五月、六月、七月。这里需要注意的是FROM的含义，其表示从经PIVOT关系运算符得到的pvt结果集中检索数据，而不是从Sales.Orders中检索数据。最终得到的结果集如表5-5所示。</p>
+
+<p>表5-5 由表5-2所示的Sales.Orders表将行转换为列得到的最终结果集<br />
+ProductID	五月	六月	七月<br />
+1	100.00	100.00	NULL<br />
+2	200.00	200.00	200.00<br />
+3	800.00	NULL	NULL</p>
+
+<p>UNPIVOT与PIVOT执行几乎完全相反的操作，将列转换为行。但是，UNPIVOT并不完全是PIVOT的逆操作，由于在执行PIVOT过程中，数据已经被进行了分组汇总，所以使用UNPIVOT并不会重现原始表值表达式的结果。假设表5-5所示的结果集存储在一个名为MyPvt的表中，现在需要将列标识符“五月”、“六月”和“七月”转换到对应于相应产品ID 的行值（即返回到表5-3所示的格式）。这意味着必须另外标识两个列，一个用于存储月份，一个用于存储销售额。为了便于理解，仍旧分别将这两个列命名为 OrderMonth和SumSubTotal。参考下面的语句：</p>
+
+<p>CREATE TABLE MyPvt (ProductID int, 五月int, 六月 int, 七月int); –建立MyPvt表<br />
+GO<br />
+–将表5-5中所示的值插入到MyPvt表中</p>
+
+<p>INSERT INTO MyPvt VALUES (1,100,100,0);<br />
+INSERT INTO MyPvt VALUES (2,200,200,200);<br />
+INSERT INTO MyPvt VALUES (3,800,0,0);</p>
+
+<p>–执行UNPIVOT</p>
+
+<p>SELECT ProductID, OrderMonth, SubTotal<br />
+FROM<br />
+MyPvt UNPIVOT<br />
+(SubTotal FOR OrderMonth IN　　(五月, 六月, 七月)　)AS unpvt;</p>
+
+<p>上面的语句将按下面的步骤获得输出结果集：</p>
+
+<p>a．首先建立一个临时结果集的结构，该结构中包含MyPvt表中除IN (五月, 六月, 七月)之外的列，以及SubTotal FOR OrderMonth中指定的值列（SubTotal）和透视列（OrderMonth）。  <br />
+b．将在MyPvt中逐行检索数据，将表的列名称（在IN (五月, 六月, 七月)中指定）放入OrderMonth列中，将相应的值放入到SubTotal列中。最后得到的结果集如表5-6所示。</p>
+
+<p>表5-6 使用UNPIVOT得到的结果集  <br />
+ProductID	OrderMonth	SubTotal <br />
+1	五月	100<br />
+1	六月	100<br />
+1	七月	0<br />
+2	五月	200<br />
+2	六月	200<br />
+2	七月	200<br />
+3	五月	800<br />
+3	六月	0<br />
+3	七月	0</p>
+
+<p>原文地址:  http://dev.yesky.com/394/2429894.shtml</p>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#mssql">mssql</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#mssql">mssql</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/mssql/2012/09/07/%E5%9C%A8SQL-Server-2005%E4%B8%AD%E5%AE%9E%E7%8E%B0%E8%A1%A8%E7%9A%84%E8%A1%8C%E5%88%97%E8%BD%AC%E6%8D%A2/" data-title="在SQLServer2005中实现表的行列转换 | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/ruby/2012/09/07/Ruby_on_Rails%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B%E5%8F%8A%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7%E9%80%89%E7%94%A8/" title="Ruby_on_Rails入门教程及开发工具选用">
+  <strong>上一篇：</strong><br/>
+  <span>
+  Ruby_on_Rails入门教程及开发工具选用</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/database/2012/09/20/NoSQL%E5%9C%A8%E8%85%BE%E8%AE%AF%E5%BA%94%E7%94%A8%E5%AE%9E%E8%B7%B5/"  title="NoSQL在腾讯应用实践">
+ <strong>下一篇：</strong><br/> 
+ <span>NoSQL在腾讯应用实践
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

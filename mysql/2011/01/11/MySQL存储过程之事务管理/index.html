@@ -1,0 +1,1117 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>MySQL存储过程之事务管理 | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="MySQL存储过程之事务管理">
+    <meta property="og:url" content="/mysql/2011/01/11/MySQL%E5%AD%98%E5%82%A8%E8%BF%87%E7%A8%8B%E4%B9%8B%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="MySQL存储过程之事务管理">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/mysql/2011/01/11/MySQL%E5%AD%98%E5%82%A8%E8%BF%87%E7%A8%8B%E4%B9%8B%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86/" title="MySQL存储过程之事务管理" itemprop="url">MySQL存储过程之事务管理</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2011-01-11 00:00:00 +0800" itemprop="datePublished"> 发表于 2011-01-11</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>转载 MySQL存储过程之事务管理</p>
+
+<p>ACID:Atomic、Consistent、Isolated、Durable<br />
+存储程序提供了一个绝佳的机制来定义、封装和管理事务。</p>
+
+<p>1，MySQL的事务支持<br />
+MySQL的事务支持不是绑定在MySQL服务器本身，而是与存储引擎相关：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>MyISAM：不支持事务，用于只读程序提高性能  
+InnoDB：支持ACID事务、行级锁、并发  
+Berkeley DB：支持事务  
+</code></pre></div></div>
+
+<p>隔离级别：<br />
+隔离级别决定了一个session中的事务可能对另一个session的影响、并发session对数据库的操作、一个session中所见数据的一致性<br />
+ANSI标准定义了4个隔离级别，MySQL的InnoDB都支持：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>READ UNCOMMITTED：最低级别的隔离，通常又称为dirty read，它允许一个事务读取还没commit的数据，这样可能会提高性能，但是dirty read可能不是我们想要的  
+READ COMMITTED：在一个事务中只允许已经commit的记录可见，如果session中select还在查询中，另一session此时insert一条记录，则新添加的数据不可见  
+REPEATABLE READ：在一个事务开始后，其他session对数据库的修改在本事务中不可见，直到本事务commit或rollback。在一个事务中重复select的结果一样，除非本事务中update数据库。  
+SERIALIZABLE：最高级别的隔离，只允许事务串行执行。为了达到此目的，数据库会锁住每行已经读取的记录，其他session不能修改数据直到前一事务结束，事务commit或取消时才释放锁。  
+</code></pre></div></div>
+
+<p>可以使用如下语句设置MySQL的session隔离级别：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SET TRANSACTION ISOLATION LEVEL {READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SERIALIZABLE}  
+</code></pre></div></div>
+
+<p>MySQL默认的隔离级别是REPEATABLE READ，在设置隔离级别为READ UNCOMMITTED或SERIALIZABLE时要小心，READ UNCOMMITTED会导致数据完整性的严重问题，而SERIALIZABLE会导致性能问题并增加死锁的机率</p>
+
+<p>事务管理语句：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>START TRANSACTION：开始事务，autocommit设为0，如果已经有一个事务在运行，则会触发一个隐藏的COMMIT  
+COMMIT：提交事务，保存更改，释放锁  
+ROLLBACK：回滚本事务对数据库的所有更改，然后结束事务，释放锁  
+SAVEPOINT savepoint_name：创建一个savepoint识别符来ROLLBACK TO SAVEPOINT  
+ROLLBACK TO SAVEPOINT savepoint_name：回滚到从savepoint_name开始对数据库的所有更改，这样就允许回滚事务中的一部分，保证更改的一个子集被提交  
+SET TRANSACTION：允许设置事务的隔离级别  
+LOCK TABLES：允许显式的锁住一个或多个table，会隐式的关闭当前打开的事务，建议在执行LOCK TABLES语句之前显式的commit或rollback。我们一般所以一般在事务代码里不会使用LOCK TABLES  
+</code></pre></div></div>
+
+<p>2，定义事务<br />
+MySQL默认的行为是在每条SQL语句执行后执行一个COMMIT语句，从而有效的将每条语句独立为一个事务。<br />
+在复杂的应用场景下这种方式就不能满足需求了。<br />
+为了打开事务，允许在COMMIT和ROLLBACK之前多条语句被执行，我们需要做以下两步：<br />
+1, 设置MySQL的autocommit属性为0，默认为1<br />
+2，使用START TRANSACTION语句显式的打开一个事务</p>
+
+<p>如果已经打开一个事务，则SET autocommit=0不会起作用，因为START TRANSACTION会隐式的提交session中所有当前的更改，结束已有的事务，并打开一个新的事务。</p>
+
+<p>使用SET AUTOCOMMIT语句的存储过程例子：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CREATE PROCEDURE tfer_funds  
+    (from_account int, to_account int, tfer_amount numeric(10,2))  
+BEGIN  
+    SET autocommit=0;  
+    
+    UPDATE account_balance SET balance=balance-tfer_amount WHERE account_id=from_account;  
+    
+    UPDATE account_balance SET balance=balance+tfer_amount WHERE account_id=to_account;  
+    
+    COMMIT;  
+END;  
+</code></pre></div></div>
+
+<p>使用START TRANSACITON打开事务的例子：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CREATE PROCEDURE tfer_funds  
+    (from_account int, to_account int, tfer_amount numeric(10,2))  
+BEGIN  
+    START TRANSACTION;  
+    
+    UPDATE account_balance SET balance=balance-tfer_amount WHERE account_id=from_account;  
+    
+    UPDATE account_balance SET balance=balance+tfer_amount WHERE account_id=to_account;  
+    
+    COMMIT;  
+END;  
+</code></pre></div></div>
+
+<p>通常COMMIT或ROLLBACK语句执行时才完成一个事务，但是有些DDL语句等会隐式触发COMMIT，所以应该在事务中尽可能少用或注意一下：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ALTER FUNCTION  
+ALTER PROCEDURE  
+ALTER TABLE  
+BEGIN  
+CREATE DATABASE  
+CREATE FUNCTION  
+CREATE INDEX  
+CREATE PROCEDURE  
+CREATE TABLE  
+DROP DATABASE  
+DROP FUNCTION  
+DROP INDEX  
+DROP PROCEDURE  
+DROP TABLE  
+UNLOCK TABLES  
+LOAD MASTER DATA  
+LOCK TABLES  
+RENAME TABLE  
+TRUNCATE TABLE  
+SET AUTOCOMMIT=1  
+START TRANSACTION  
+</code></pre></div></div>
+
+<p>3，使用Savepoint<br />
+使用savepoint回滚难免有些性能消耗，一般可以用IF改写<br />
+savepoint的良好使用的场景之一是“嵌套事务”，你可能希望程序执行一个小的事务，但是不希望回滚外面更大的事务：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CREATE PROCEDURE nested_tfer_funds  
+    (in_from_acct INTEGER,  
+     in_to_acct INTEGER,  
+     in_tfer_amount DECIMAL(8,2))  
+BEGIN  
+    DECLARE txn_error INTEGER DEFAULT 0;  
+    
+    DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN  
+        SET txn_error=1;  
+    END  
+    
+    SAVEPINT savepint_tfer;  
+    
+    UPDATE account_balance  
+       SET balance=balance-in_tfer_amount  
+     WHERE account_id=in_from_acct;  
+    
+    IF txn_error THEN  
+        ROLLBACK TO savepoint_tfer;  
+        SELECT 'Transfer aborted';  
+    ELSE  
+        UPDATE account_balance  
+           SET balance=balance+in_tfer_amount  
+         WHERE account_id=in_to_acct;  
+    
+        IF txn_error THEN  
+            ROLLBACK TO savepoint_tfer;  
+            SELECT 'Transfer aborted';  
+    
+        END IF:  
+    END IF;  
+END;  
+</code></pre></div></div>
+
+<p>4，事务和锁<br />
+事务的ACID属性只能通过限制数据库的同步更改来实现，从而通过对修改数据加锁来实现。<br />
+直到事务触发COMMIT或ROLLBACK语句时锁才释放。<br />
+缺点是后面的事务必须等前面的事务完成才能开始执行，吞吐量随着等待锁释放的时间增长而递减。<br />
+MySQL/InnoDB通过行级锁来最小化锁竞争。这样修改同一table里其他行的数据没有限制，而且读数据可以始终没有等待。<br />
+可以在SELECT语句里使用FOR UPDATE或LOCK IN SHARE MODE语句来加上行级锁</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SELECT select_statement options [FOR UPDATE|LOCK IN SHARE MODE]  
+</code></pre></div></div>
+
+<p>FOR UPDATE会锁住该SELECT语句返回的行，其他SELECT和DML语句必须等待该SELECT语句所在的事务完成<br />
+LOCK IN SHARE MODE同FOR UPDATE，但是允许其他session的SELECT语句执行并允许获取SHARE MODE锁</p>
+
+<p>死锁：<br />
+死锁发生于两个事务相互等待彼此释放锁的情景<br />
+当MySQL/InnoDB检查到死锁时，它会强制一个事务rollback并触发一条错误消息<br />
+对InnoDB而言，所选择的rollback的事务是完成工作最少的事务（所修改的行最少）</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mysql &gt; CALL tfer_funds(1,2,300);  
+ERROR 1213 (40001): Deadlock found when trying to get lock; try restarting transaction  
+</code></pre></div></div>
+
+<p>死锁在任何数据库系统里都可能发生，但是对MySQL/InnoDB这种行级锁数据库而言可能性相对较少。<br />
+可以通过使用一致的顺序来锁row或table以及让事务保持尽可能短来减少死锁的频率。<br />
+如果死锁不容易debug，你可以向你的程序中添加一些逻辑来处理死锁并重试事务，但这部分代码多了以后很难维护<br />
+所以，比较好的避免死锁的方式是在做任何修改之前按一定的顺序添加行级锁，这样就能避免死锁:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CREATE PROCEDURE tfer_funds3  
+    (from_account INT, to_account INT, tfer_amount NUMERIC(10,2))  
+BEGIN  
+    DECLARE local_account_id INT;  
+    DECLARE lock_cursor CURSOR FOR  
+        SELECT account_id  
+          FROM account_balance  
+         WHERE account_id IN (from_account, to_account)  
+         ORDER BY account_id  
+           FOR UPDATE;  
+    
+    START TRANSACTION;  
+    
+    OPEN lock_cursor;  
+    FETCH lock_cursor INTO local_account_id;  
+    
+    UPDATE account_balance  
+       SET balance=balance-tfer_amount  
+     WHERE account_id=from_account;  
+    
+    UPDATE account_balance  
+       SET balance=balance+tfer_amount  
+     WHERE account_id=to_account;  
+    
+    CLOSE lock_cursor;  
+    
+    COMMIT;  
+END;  
+</code></pre></div></div>
+
+<p>设置死锁ttl: innodb_lock_wait_timeout，默认为50秒<br />
+如果你在一个事务中混合使用InnoDB和非InnoDB表，则MySQL不能检测到死锁，此时会抛出“lock wait timeuot”1205错误</p>
+
+<p>乐观所和悲观锁策略：<br />
+悲观锁：在读取数据时锁住那几行，其他对这几行的更新需要等到悲观锁结束时才能继续<br />
+乐观所：读取数据时不锁，更新时检查是否数据已经被更新过，如果是则取消当前更新<br />
+一般在悲观锁的等待时间过长而不能接受时我们才会选择乐观锁<br />
+悲观锁的例子：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CREATE PROCEDURE tfer_funds  
+       (from_account INT, to_account INT,tfer_amount NUMERIC(10,2),  
+        OUT status INT, OUT message VARCHAR(30))  
+BEGIN  
+    DECLARE from_account_balance NUMERIC(10,2);  
+    
+    START TRANSACTION;  
+    
+    
+    SELECT balance  
+      INTO from_account_balance  
+      FROM account_balance  
+     WHERE account_id=from_account  
+       FOR UPDATE;  
+    
+    IF from_account_balance&gt;=tfer_amount THEN  
+    
+         UPDATE account_balance  
+            SET balance=balance-tfer_amount  
+          WHERE account_id=from_account;  
+    
+         UPDATE account_balance  
+            SET balance=balance+tfer_amount  
+          WHERE account_id=to_account;  
+         COMMIT;  
+    
+         SET status=0;  
+         SET message='OK';  
+    ELSE  
+         ROLLBACK;  
+         SET status=-1;  
+         SET message='Insufficient funds';  
+    END IF;  
+END;  
+</code></pre></div></div>
+
+<p>乐观锁的例子：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CREATE PROCEDURE tfer_funds  
+    (from_account INT, to_account INT, tfer_amount NUMERIC(10,2),  
+        OUT status INT, OUT message VARCHAR(30) )  
+    
+BEGIN  
+    
+    DECLARE from_account_balance NUMERIC(8,2);  
+    DECLARE from_account_balance2 NUMERIC(8,2);  
+    DECLARE from_account_timestamp1 TIMESTAMP;  
+    DECLARE from_account_timestamp2 TIMESTAMP;  
+    
+    SELECT account_timestamp,balance  
+        INTO from_account_timestamp1,from_account_balance  
+            FROM account_balance  
+            WHERE account_id=from_account;  
+    
+    IF (from_account_balance&gt;=tfer_amount) THEN  
+    
+        -- Here we perform some long running validation that  
+  
+        -- might take a few minutes */  
+  
+        CALL long_running_validation(from_account);  
+    
+        START TRANSACTION;  
+    
+        -- Make sure the account row has not been updated since  
+  
+        -- our initial check  
+  
+        SELECT account_timestamp, balance  
+            INTO from_account_timestamp2,from_account_balance2  
+            FROM account_balance  
+            WHERE account_id=from_account  
+            FOR UPDATE;  
+    
+        IF (from_account_timestamp1 &lt;&gt; from_account_timestamp2 OR  
+            from_account_balance &lt;&gt; from_account_balance2) THEN  
+            ROLLBACK;  
+            SET status=-1;  
+            SET message=CONCAT("Transaction cancelled due to concurrent update",  
+                " of account" ,from_account);  
+        ELSE  
+            UPDATE account_balance  
+                SET balance=balance-tfer_amount  
+                WHERE account_id=from_account;  
+    
+            UPDATE account_balance  
+                SET balance=balance+tfer_amount  
+                WHERE account_id=to_account;  
+    
+            COMMIT;  
+    
+            SET status=0;  
+            SET message="OK";  
+        END IF;  
+    
+    ELSE  
+        ROLLBACK;  
+        SET status=-1;  
+        SET message="Insufficient funds";  
+    END IF;  
+END$$  
+</code></pre></div></div>
+
+<p>事务设计指南:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1，保持事务短小  
+2，尽量避免事务中rollback  
+3，尽量避免savepoint  
+4，默认情况下，依赖于悲观锁  
+5，为吞吐量要求苛刻的事务考虑乐观锁  
+6，显示声明打开事务  
+7，锁的行越少越好，锁的时间越短越好  
+</code></pre></div></div>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#mysql">mysql</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#mysql">mysql</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/mysql/2011/01/11/MySQL%E5%AD%98%E5%82%A8%E8%BF%87%E7%A8%8B%E4%B9%8B%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86/" data-title="MySQL存储过程之事务管理 | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/mssql/2011/01/07/SQLServer2005%E5%88%86%E9%A1%B5SQL-%E5%8D%95%E6%9D%A1SQL%E8%AF%AD%E5%8F%A5/" title="SQLServer2005分页SQL—单条SQL语句">
+  <strong>上一篇：</strong><br/>
+  <span>
+  SQLServer2005分页SQL—单条SQL语句</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/mysql/2011/01/20/MYSQL%E4%BD%BF%E7%94%A8.frm%E6%96%87%E4%BB%B6%E6%81%A2%E5%A4%8D%E6%95%B0%E6%8D%AE%E8%A1%A8(Innodb%E5%92%8CMyisam)%E7%BB%93%E6%9E%84/"  title="MYSQL使用.frm文件恢复数据表(Innodb和Myisam)结构">
+ <strong>下一篇：</strong><br/> 
+ <span>MYSQL使用.frm文件恢复数据表(Innodb和Myisam)结构
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

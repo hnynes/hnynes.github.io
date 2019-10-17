@@ -1,0 +1,2143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+ <title>Mars(hnynes)</title>
+ <link href="http://localhost:18000/atom.xml" rel="self"/>
+ <link href="http://localhost:18000"/>
+ <updated>2019-10-17T14:29:35+08:00</updated>
+ <id>http://localhost:18000</id>
+ <author>
+   <name>Mars (hnynes)</name>
+   <email></email>
+ </author>
+
+ 
+ <entry>
+   <title>QP支付后台用户存取款历史数据分表存储</title>
+   <link href="http://localhost:18000/mysql/2019/09/27/QP%E6%94%AF%E4%BB%98%E5%90%8E%E5%8F%B0%E7%94%A8%E6%88%B7%E5%AD%98%E5%8F%96%E6%AC%BE%E5%8E%86%E5%8F%B2%E6%95%B0%E6%8D%AE%E5%88%86%E8%A1%A8%E5%AD%98%E5%82%A8/"/>
+   <updated>2019-09-27T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2019/09/27/QP支付后台用户存取款历史数据分表存储</id>
+   <content type="html">&lt;h1 id=&quot;qp支付后台用户存取款历史数据分表存储&quot;&gt;QP支付后台用户存取款历史数据分表存储&lt;/h1&gt;
+
+&lt;h2 id=&quot;问题&quot;&gt;问题&lt;/h2&gt;
+
+&lt;p&gt;用户存款包含了有史以来的所有存款记录, 目前数据量已超过1000万, 后续仍会持续增加. 目前使用中反馈, 有写入,修改数据缓慢和查询页面显示刷新缓慢的问题.&lt;/p&gt;
+
+&lt;h2 id=&quot;解决方案&quot;&gt;解决方案&lt;/h2&gt;
+
+&lt;p&gt;咨询客服同事,对历史存款数据的访问, 多集中在1个月内, 对更久以前的数据, 基本不访问.&lt;br /&gt;
+可将3个月前的存款数据转储至其它数据表中, 保证活跃数据表中并不会留存太多数据, 以加快数据的访问效率.&lt;br /&gt;
+对转储后历史数据, 虽访问少, 但仍需要保留访问入口.&lt;/p&gt;
+
+&lt;h2 id=&quot;切分规则&quot;&gt;切分规则&lt;/h2&gt;
+
+&lt;p&gt;现有数据的粗略统计如下:
+2018年全年的数据 约350万条
+2019年现有的数据, 每月产生的数据量约85万-97万条&lt;/p&gt;
+
+&lt;p&gt;根据以上数据统计结果, 与开发同事协商, 将用户存款数据3个月以前的数据按月进行切分, 转存至新表.&lt;/p&gt;
+
+&lt;p&gt;表名命令规则:
+原表名: t_u_deposit_record
+deposit统计值  : re_amount  过滤条件: flag = 2 and is_notify = 1
+withdraw统计值 : amount     过滤条件: flag = 2 and is_notify = 1&lt;/p&gt;
+
+&lt;p&gt;新的活跃存款表名: t_u_deposit_record (不变)&lt;br /&gt;
+历史数据按月切分的表名规则: t_u_deposit_record_his_XXXXMM (XXXX: 年份, 4位数字, MM: 月份, 2位数字, 如201909, 201910)&lt;/p&gt;
+
+&lt;h2 id=&quot;数据转储方式&quot;&gt;数据转储方式&lt;/h2&gt;
+
+&lt;p&gt;通过编写mysql存储过程, 以事件的方式每天循环调用执行数据转储.&lt;/p&gt;
+
+&lt;h2 id=&quot;历史数据汇总统计&quot;&gt;历史数据汇总统计&lt;/h2&gt;
+
+&lt;p&gt;为加快历史数据的访问速度, 需要对转储后的历史数据进行汇总统计, 加快数据检索速度. &lt;br /&gt;
+修改转储数据的存储过程, 对转储的数据进行增量汇总&lt;/p&gt;
+
+&lt;h3 id=&quot;根据customer_id进行分组&quot;&gt;根据customer_id进行分组&lt;/h3&gt;
+
+&lt;p&gt;按天对re_amount和行数进行统计, 过滤条件(flag = 2 &amp;amp; is_notify = 1)&lt;/p&gt;
+
+&lt;h3 id=&quot;根据channel_code进行分组&quot;&gt;根据channel_code进行分组&lt;/h3&gt;
+
+&lt;p&gt;按天对re_amount和行数进行统计, 过滤条件(flag = 2 &amp;amp; is_notify = 1)&lt;br /&gt;
+deposit的chan_code字段为 : code
+withdraw的chan_code字段为: type&lt;/p&gt;
+
+&lt;h2 id=&quot;mysql存储过程中处理细节&quot;&gt;MySQL存储过程中处理细节&lt;/h2&gt;
+
+&lt;h3 id=&quot;错误处理&quot;&gt;错误处理&lt;/h3&gt;
+
+&lt;p&gt;需要处理的错误码: 1146, 1058, 1062, 1072, 1103, 1106, 1109, 1117, 1149, 1292, 1091, 1054&lt;br /&gt;
+错误处理主要通过”GET DIAGNOSTICS CONDITION 1”, 获取错误状态, 错误信息和错误的代码, 并将获取到的内容写入迁移错误日志表migrate_err_log.&lt;br /&gt;
+定义错误处理捕获处理方式为退出, 发生错误后, 错误信息会被记录至迁移错误日志表, 同时在迁移日志表中对执行设定了限制, 无法重复执行, 因此在修复完错误后, 将对应日期的数据从历史数据表中迁移至业务数据表中, 并清理对应日期的用户和渠道统计数据, 重新手动调用迁移过程.若迁移日志只有开始的记录, 却没有完成的记录, 也按上述同样的处理方式进行处理.&lt;/p&gt;
+
+&lt;h3 id=&quot;单次处理数据量&quot;&gt;单次处理数据量&lt;/h3&gt;
+
+&lt;p&gt;目前对单次处理数据量做了一定的限定, 设定范围为[5000, 10000], 减小数据迁移的数据处理对业务运行的影响. 若后续通过监控发现仍存在一定的影响, 可进一步减小单次处理数据量.&lt;/p&gt;
+
+&lt;h3 id=&quot;数据迁移过程&quot;&gt;数据迁移过程&lt;/h3&gt;
+
+&lt;p&gt;迁移的处理步骤如下:&lt;/p&gt;
+&lt;blockquote&gt;
+  &lt;ol&gt;
+    &lt;li&gt;记录数据迁移开始日志至数据表&lt;/li&gt;
+    &lt;li&gt;从业务表中获取设定量的数据, 写入临时业务数据表中&lt;/li&gt;
+    &lt;li&gt;将数据由临时表写入特定的历史数据表(按上述规则进行计算)&lt;/li&gt;
+    &lt;li&gt;检查临时表与写入历史表的数据是否一致, 若不一致, 则将错误信息记录至迁移错误日志, 并退出执行&lt;/li&gt;
+    &lt;li&gt;若检查结果一致, 根据临时表中的数据删除对应存储在业务数据表中的数据&lt;/li&gt;
+    &lt;li&gt;将当前临时表中的数据按用户汇总, 写入临时汇总表, 汇总内容为用户存取款总金额和总次数&lt;/li&gt;
+    &lt;li&gt;将当前临时表中的数据按渠道汇总, 写入临时汇总表, 汇总内容为用户渠道存取款总金额和总次数&lt;/li&gt;
+    &lt;li&gt;删除临时业务数据表中数据&lt;/li&gt;
+    &lt;li&gt;重复执行上述2-8步骤, 当检测到单次写入历史数据表中数据小于设定的数量, 即认为当天数据已处理完, 退出循环.&lt;/li&gt;
+    &lt;li&gt;更新记录迁移日志, 记录完成时间及迁移数据量&lt;/li&gt;
+    &lt;li&gt;汇总用户临时汇总表中的数据, 写入汇总数据表&lt;/li&gt;
+    &lt;li&gt;汇总渠道临时汇总表中的数据, 写入汇总数据表&lt;/li&gt;
+    &lt;li&gt;清理临时数据表&lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2019-09-27-p1.PNG&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;设置定时循环调用&quot;&gt;设置定时循环调用&lt;/h3&gt;
+
+&lt;p&gt;将循环定时调用过程设定至每天01:00 – 06:00 (am) 执行&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+ <entry>
+   <title>使用Wireshark查看tcpdump抓包数据</title>
+   <link href="http://localhost:18000/linux/2019/09/06/%E4%BD%BF%E7%94%A8Wireshark%E6%9F%A5%E7%9C%8Btcpdump%E6%8A%93%E5%8C%85%E6%95%B0%E6%8D%AE/"/>
+   <updated>2019-09-06T00:00:00+08:00</updated>
+   <id>http://localhost:18000/linux/2019/09/06/使用Wireshark查看tcpdump抓包数据</id>
+   <content type="html">&lt;h1 id=&quot;使用wireshark查看tcpdump抓包数据&quot;&gt;使用Wireshark查看tcpdump抓包数据&lt;/h1&gt;
+
+&lt;p&gt;前段时间有台应用服务器与数据操作api之间,经常发生数据丢失的问题,运维同事查了好久也没有给出确定的答复, 到底问题在什么地方. &lt;br /&gt;
+刚好有空, 就客串一下, 顺便熟悉下使用.&lt;/p&gt;
+
+&lt;p&gt;主要采用tcpdump来抓包, 然后使用wireshark的图形化界面来查看, 并尝试确定出现问题的地方, 以便对问题原因给出明确的结论.&lt;/p&gt;
+
+&lt;p&gt;要使用wireshark来查看tcpdump的抓包文件, 需要tcpdump抓包时使用原始格式, 而不能是解析过后的文本格式.&lt;/p&gt;
+
+&lt;p&gt;用到的命令如下:&lt;br /&gt;
+tcpdump -i ens192 -w capture.cab src host 10.64.2.70&lt;/p&gt;
+
+&lt;p&gt;-i 指定网络设备名&lt;br /&gt;
+-w 指定不解析, 并输出数据包至文件中&lt;br /&gt;
+src host 指定来源机器ip&lt;/p&gt;
+
+&lt;h2 id=&quot;工具使用帮助&quot;&gt;工具使用帮助&lt;/h2&gt;
+&lt;p&gt;[root@localhost ~]# tcpdump –help&lt;br /&gt;
+tcpdump version 4.9.2&lt;br /&gt;
+libpcap version 1.5.3&lt;br /&gt;
+OpenSSL 1.0.2k-fips  26 Jan 2017&lt;br /&gt;
+Usage: tcpdump [-aAbdDefhHIJKlLnNOpqStuUvxX#] [ -B size ] [ -c count ]&lt;br /&gt;
+		[ -C file_size ] [ -E algo:secret ] [ -F file ] [ -G seconds ]&lt;br /&gt;
+		[ -i interface ] [ -j tstamptype ] [ -M secret ] [ –number ]&lt;br /&gt;
+		[ -Q|-P in|out|inout ]&lt;br /&gt;
+		[ -r file ] [ -s snaplen ] [ –time-stamp-precision precision ]&lt;br /&gt;
+		[ –immediate-mode ] [ -T type ] [ –version ] [ -V file ]&lt;br /&gt;
+		[ -w file ] [ -W filecount ] [ -y datalinktype ] [ -z postrotate-command ]&lt;br /&gt;
+		[ -Z user ] [ expression ]&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://www.tcpdump.org/manpages/tcpdump.1.html&quot;&gt;在线帮助文档&lt;/a&gt;&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>8步从Python白板到专家</title>
+   <link href="http://localhost:18000/python/2015/04/23/8%E6%AD%A5%E4%BB%8EPython%E7%99%BD%E6%9D%BF%E5%88%B0%E4%B8%93%E5%AE%B6/"/>
+   <updated>2015-04-23T00:00:00+08:00</updated>
+   <id>http://localhost:18000/python/2015/04/23/8步从Python白板到专家</id>
+   <content type="html">&lt;p&gt;8步从Python白板到专家，从基础到深度学习&lt;/p&gt;
+
+&lt;p&gt;如果你想做一个数据科学家，或者作为一个数据科学家你想扩展自己的工具和知识库，那么，你来对地方了。&lt;/p&gt;
+
+&lt;p&gt;这篇文章的目的，是给刚开始使用Python进行数据分析的人，指明一条全面的Python学习路径。这条路径提供了用Python进行数据分析的必要步骤的一个全面概述。如果你已经有了一些基础，或者不需要所有的内容，可以随意调整学习路径以适合自己，并让我们知道你是怎么改动的。&lt;/p&gt;
+
+&lt;p&gt;0热身运动&lt;br /&gt;
+在开始学习之前，第一个需要回答的问题是&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p1.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;推荐这个30分钟的录像，它是DataRobot创始人Jeremy在2014年Python社区大会（PyCon）上的讲话，它能够让你了解Python有多有用。小编注：建议在Wi-Fi连接下观看。&lt;/p&gt;
+
+&lt;p&gt;1、设置你的计算机&lt;br /&gt;
+既然你已经下定了决心，是时候设置你的计算机了。最简单的方法是直接从Continuum.io下载Anaconda，它含有你Python生涯中需要的绝大多数好东东 。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p2.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;https://store.continuum.io/cshop/anaconda/&lt;/p&gt;
+
+&lt;p&gt;这样做的主要缺点是，即便有一些底层包已经有更新版本的时候，你还是需要等待Continuum更新Anaconda中的包。如果你只是刚刚开始，那这一点就不算是个问题。如果在安装时遇到任何困难，你可以在下面这个网站找到在不同操作系统下安装的详细指引。&lt;/p&gt;
+
+&lt;p&gt;http://www.datarobot.com/blog/getting-up-and-running-with-python/&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p3.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;2、学习基本知识&lt;br /&gt;
+你应该从了解Python语言、库和数据结构的基础知识开始，这个来自Codecademy的教程是你开始学习的最佳选择之一。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p4.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://www.codecademy.com/tracks/python&lt;/p&gt;
+
+&lt;p&gt;在学完这个教程后，你应该可以轻松地用Python写些小程序，并且对类和对象的含义也有了理解。&lt;/p&gt;
+
+&lt;p&gt;特别学习：Lists（列表），Tuples（元组），Dictionaries（字典），列表的内涵和字典的内涵。&lt;br /&gt;
+完成作业：完成在HackerRank上的教程习题。这些作业应该能让你的大脑因Python而“燃烧”。&lt;br /&gt;
+备用资源：如果交互式编程学习不适合你，你也可以看看这个Google上的Python课程。这个两天的课程，内容覆盖了随后会提到的一些内容。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p5.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;https://developers.google.com/edu/python/。&lt;/p&gt;
+
+&lt;p&gt;3、学习正则表达式&lt;br /&gt;
+你将会大量使用它来进行数据清洗，特别是在处理文本数据。学习正则表达式的最好方法是完成这个课程&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p6.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;https://developers.google.com/edu/python/regular-expressions&lt;/p&gt;
+
+&lt;p&gt;并把这个“夹带”（当然不是考试的小抄，是速查表）放在随手可得的地方。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p7.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;小编注：请上网站查看完整内容。&lt;br /&gt;
+www.debuggex.com/cheatsheet/regex/python&lt;/p&gt;
+
+&lt;p&gt;完成“婴儿取名”练习&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p8.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;https://developers.google.com/edu/python/exercises/baby-names&lt;/p&gt;
+
+&lt;p&gt;如果想（gou）要（dan）更多的练习，请学习这个文本清理的课程。该课程将会在数据清理的不同步骤给你挑战。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p9.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://www.analyticsvidhya.com/blog/2014/11/text-data-cleaning-steps-python/。&lt;/p&gt;
+
+&lt;p&gt;4、学习Python科学库&lt;br /&gt;
+有趣之事，始于此处！这里，简要介绍不同的Python科学库——NumPy, SciPy, Matplotlib和Pandas。那么，让我们开始练习常用操作吧！&lt;/p&gt;
+
+&lt;p&gt;完整地练习NumPy操作课程，特别是NumPy的数组操作。这会建立一个好的基础，为将要面临的现实挑战做准备。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p10.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://wiki.scipy.org/Tentative_NumPy_Tutorial&lt;/p&gt;
+
+&lt;p&gt;接下来，看看SciPy的课程。完整学习简介和基础知识部分，剩余部分可根据个人需要进行学习。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p11.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://docs.scipy.org/doc/scipy/reference/tutorial/&lt;/p&gt;
+
+&lt;p&gt;如果你猜下一个是Matplotlib教程，那就错了！就我们目前的情况而言，它们太过全面了。事实上，把ipython笔记看到第68行（到animations）就基本可以了。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p12.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://nbviewer.ipython.org/github/jrjohansson/scientific-python-lectures/blob/master/Lecture-4-Matplotlib.ipynb&lt;/p&gt;
+
+&lt;p&gt;最后，我们来看Pandas。它为Python提供了数据帧（DataFrame）的功能，类似于R语言。你也需要在这上面多花时间好好练习。对于所有中等规模的数据分析来说，Panda将会成为最有效的工具。从这个短小的10分钟入门开始，了解一下Pandas。然后，… …&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p13.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://pandas.pydata.org/pandas-docs/stable/10min.html&lt;/p&gt;
+
+&lt;p&gt;然后，再看更详细的课程&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p14.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://www.gregreda.com/2013/10/26/intro-to-pandas-data-structures/。&lt;/p&gt;
+
+&lt;p&gt;你还可以看看“用Pandas进行探索性数据分析”（http://www.analyticsvidhya.com/blog/2014/09/data-munging-python-using-pandas-baby-steps-python/）以及“用Pandas进行数据整合”（http://www.analyticsvidhya.com/blog/2014/08/baby-steps-python-performing-exploratory-analysis-python/）两篇文章。&lt;/p&gt;
+
+&lt;p&gt;其它资源：&lt;br /&gt;
+ 如果你需要一本有关Pandas和NumPy的教材，推荐Wes McKinney著的《Python for Data Analysis》&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p15.jpg&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;下面这个网站，还有很多的教程可作为Pandas的学习材料。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p16.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://pandas.pydata.org/pandas-docs/stable/tutorials.html&lt;/p&gt;
+
+&lt;p&gt;完成来自哈佛大学CS109课程的作业。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p17.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://nbviewer.ipython.org/github/cs109/2014/blob/master/homework/HW1.ipynb&lt;/p&gt;
+
+&lt;p&gt;小编注：回复 可视化 查看【数据科学之5个最佳Python库】，了解关于这些科学库的更多介绍和学习资源。&lt;/p&gt;
+
+&lt;p&gt;5、有效的数据可视化&lt;br /&gt;
+学完这个来自CS109的课程，你可以跳过前面的两分钟，接来下的内容非常精彩！&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p18.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://cm.dce.harvard.edu/2015/01/14328/L03/screen_H264LargeTalkingHead-16x9.shtml&lt;/p&gt;
+
+&lt;p&gt;跟着课程完成下面课程作业&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p19.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://nbviewer.ipython.org/github/cs109/2014/blob/master/homework/HW2.ipynb&lt;/p&gt;
+
+&lt;p&gt;6、学习Scikit-learn和机器学习&lt;br /&gt;
+现在，我们来到了整个过程的实质部分。Scikit-learn是在Python中对机器学习最有用的库。&lt;/p&gt;
+
+&lt;p&gt;学完来自哈佛大学2014年的CS109课程中第10讲到第18讲。你会全面了解机器学习，监督式学习算法（如回归、决策树、整体建模等）和非监督式学习算法（如聚类等）。切记，跟随每一讲，完成作业。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p20.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://cs109.github.io/2014/pages/schedule.html&lt;/p&gt;
+
+&lt;p&gt;其它资源：&lt;br /&gt;
+ 如果有一本必读的书，那就是《Programming Collective Intelligence》，非常经典，仍然是关于这方面最好的书之一&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p21.jpg&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;另外，如果你需要技术上更清晰的解释，可以选择Andrew Ng（这位大牛的课，不该不知道吧？）课程 ，用Python完成其中的习题。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p22.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;https://www.coursera.org/course/ml&lt;/p&gt;
+
+&lt;p&gt;Scikit-lean的教程（这个不能忘）&lt;br /&gt;
+试着完成Kaggle上的这个挑战&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p23.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://www.kaggle.com/c/data-science-london-scikit-learn&lt;/p&gt;
+
+&lt;p&gt;7、练习，练习，再练习&lt;br /&gt;
+祝贺你，你做到了！现在，你已经拥有所需要的全部技能，只差练习了。哪里会有比在Kaggle上练习更好呢？上Kaggle与跟你一样的数据科学家一较高下。去吧，参加一个在Kaggle上正在举办的实时比赛吧！试试你所学到的全部知识！&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p24.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://www.kaggle.com/&lt;/p&gt;
+
+&lt;p&gt;8、深度学习&lt;br /&gt;
+终于看到这个，兴奋吧？！现在，你已经学到了绝大多数关于机器学习的技术，是时候试试深度学习了。很有可能你已然知道什么是深度学习，万一仍然需要一个简要介绍，可以看看这个。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p25.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://www.analyticsvidhya.com/blog/2014/06/deep-learning-attention/&lt;/p&gt;
+
+&lt;p&gt;对于深度学习，我也是个新手，就请把这些建议当作参考吧。最全面的资源在deeplearning.net上，在那里，你会找到所有的东西——讲座、数据集、挑战和教程。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p26.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;http://deeplearning.net&lt;/p&gt;
+
+&lt;p&gt;如果想要了解神经网络的基本知识，试着学习Geoff Hinton（这个大牛，你应该也是知道的吧）的课程&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/2015-04-23-p27.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;https://www.coursera.org/course/neuralnets&lt;/p&gt;
+
+&lt;p&gt;篇外话：假如你需要面向大数据的Python库，请试试Pydoop和PyMongo。由于“大数据的学习路径”本身就是一个完整的话题，因此，本文并未涉及。&lt;/p&gt;
+
+&lt;p&gt;来源：&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;http://www.analyticsvidhya.com/learning-paths-data-science-business-analytics-business-intelligence-big-data/learning-path-data-science-python/&lt;/li&gt;
+  &lt;li&gt;https://www.youtube.com/watch?v=CoxjADZHUQA&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;【译者简介】&lt;br /&gt;
+姚佳灵：家庭主妇，对数据处理和数据分析很感兴趣，正在学习Python，希望能和大家多交流。&lt;/p&gt;
+
+&lt;p&gt;康欣：博士，多年从事图像及数据处理和分析、计算机视觉、模式识别、机器学习、增强现实等领域的技术研究和创新应用，现为西门子中国研究院高级研究员。希望借此平台，与大数据分析爱好者以及专家学者交流、合作。&lt;/p&gt;
+
+&lt;p&gt;原文地址: http://bi.dataguru.cn/article-6939-1.html&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>ext3_ext4_xfs和btrfs文件系统性能对比</title>
+   <link href="http://localhost:18000/linux/2015/03/19/ext3_ext4_xfs%E5%92%8Cbtrfs%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD%E5%AF%B9%E6%AF%94/"/>
+   <updated>2015-03-19T00:00:00+08:00</updated>
+   <id>http://localhost:18000/linux/2015/03/19/ext3_ext4_xfs和btrfs文件系统性能对比</id>
+   <content type="html">&lt;p&gt;ext3，ext4，xfs和btrfs文件系统性能对比&lt;/p&gt;
+
+&lt;p&gt;应为原文：http://www.ilsistemista.net/index.php/linux-a-unix/6-linux-filesystems-benchmarked-ext3-vs-ext4-vs-xfs-vs-btrfs.html?start=1&lt;/p&gt;
+
+&lt;p&gt;还有一篇相关介绍：http://www.phoronix.com/scan.php?page=article&amp;amp;item=ext4_benchmarks&amp;amp;num=2&lt;/p&gt;
+
+&lt;p&gt;另一篇：http://tetralet.luna.com.tw/index.php?op=ViewArticle&amp;amp;articleId=214&amp;amp;blogId=1&lt;/p&gt;
+
+&lt;p&gt;我这里只摘抄核心的图例哈。&lt;/p&gt;
+
+&lt;p&gt;1：单字节写入性能对比&lt;br /&gt;
+19143942-165539dd898b4a6b9009bafd6bf8f72&lt;/p&gt;
+
+&lt;p&gt;A：由于硬盘式块设备所以对于这种测试硬盘式不擅长的&lt;/p&gt;
+
+&lt;p&gt;B：btrfs系统只有200K/SEC,xfs表现的性能比较平衡。&lt;/p&gt;
+
+&lt;p&gt;2：块写入性能对比（由于硬盘是块设备这种对比来的更有意义）&lt;/p&gt;
+
+&lt;p&gt;19144728-53118152eb0640c3b7fdd59f3ff1c4e&lt;/p&gt;
+
+&lt;p&gt;A：性能上差不多，但是效率上（CPU占用率上）来说最好的是xfs接下来依次是EXT4，EXT3，BTRFS&lt;/p&gt;
+
+&lt;p&gt;3：直接块顺序读写（关掉任何的系统和文件缓存）&lt;/p&gt;
+
+&lt;p&gt;19145153-b4b2ed2b3073468eaee382b3d0e902c&lt;/p&gt;
+
+&lt;p&gt;A：绕过系统和文件缓冲的话（例如：视频录制，一些虚拟机软件，ECC），EXT3/ 4是最好的选择，其次是BTRFS，最后是XFS。&lt;/p&gt;
+
+&lt;p&gt;B：没有一种文件系统可以适用于所有环境&lt;/p&gt;
+
+&lt;p&gt;4：随机寻道&lt;/p&gt;
+
+&lt;p&gt;19150549-85a21b43518e4b5cab69c0222c4dec7&lt;/p&gt;
+
+&lt;p&gt;A：BTRFS系能最差，不到20 seeks/sec&lt;/p&gt;
+
+&lt;p&gt;B：EXT3性能最好，如果软件大量的随机寻址的话这个文件系统性能更好&lt;/p&gt;
+
+&lt;p&gt;5：创建和删除大量文件（文件量一定）&lt;/p&gt;
+
+&lt;p&gt;19151256-1d5549b5adb24e44aa9180504d010f6&lt;/p&gt;
+
+&lt;p&gt;BTRFS系统性能最差，下面是去掉该系统其它3种的对比&lt;/p&gt;
+
+&lt;p&gt;19151446-7e1b806b60d64ae7a5990d1b026558a&lt;/p&gt;
+
+&lt;p&gt;A：EXT4是更高效高性能的系统，接下来依次是XFS,EXT3&lt;/p&gt;
+
+&lt;p&gt;6：顺序读写吞吐量【没有fsync的是100 writes/one fsync()，有的是1 writes/one fsync()】&lt;/p&gt;
+
+&lt;p&gt;19152329-0699dd0e6ae74c5b85c22bb536931f2&lt;/p&gt;
+
+&lt;p&gt;A：100 writes/one fsync()各个性能差不多&lt;/p&gt;
+
+&lt;p&gt;B：1 writes/one fsync()时EXT3性能最好，接下来依次是XFS,EXT4，BTRFS&lt;/p&gt;
+
+&lt;p&gt;C：write + fsync()在BTRFS下对读性能产生影响&lt;/p&gt;
+
+&lt;p&gt;7：随机读写吞吐量&lt;/p&gt;
+
+&lt;p&gt;19154224-993e29ffe2c944809a9afc86f079e21&lt;/p&gt;
+
+&lt;p&gt;A：100 seeks/sec每个块16 KB，我们得出最大的读取速度是1600 KB/sec，XFS，BTRFS大于了这个数值（可能数据不能随机也可能缓冲影响了结果）&lt;/p&gt;
+
+&lt;p&gt;B：EXT3随机写入性能是最好的，适用于数据库，高容量的记录程序和虚拟机系统&lt;/p&gt;
+
+&lt;p&gt;8：向PostgreSQL 中写入10万行数据&lt;/p&gt;
+
+&lt;p&gt;19155030-14e9c4b99ad145efb31ac4ccd65a78b&lt;/p&gt;
+
+&lt;p&gt;A：BTRFS 性能是最好的，EXT4和XFS很低的cpu使用率但是性能太差&lt;/p&gt;
+
+&lt;p&gt;9：读测试&lt;/p&gt;
+
+&lt;p&gt;19155632-6bcfa1326dcc4453968d1fac51a755e&lt;/p&gt;
+
+&lt;p&gt;A：10万次的读测试，性能差别不大&lt;/p&gt;
+
+&lt;p&gt;10：复杂的读写以及事务测试&lt;/p&gt;
+
+&lt;p&gt;19155851-6f901f4e184544b3a96c9cc1fb3a71a&lt;/p&gt;
+
+&lt;p&gt;A：EXT3性能最好&lt;/p&gt;
+
+&lt;p&gt;所以，数据库最好是EXT3系统，除非EXT4解决了所谓的回归问题。&lt;/p&gt;
+
+&lt;p&gt;11：Linux kernel 2.6.36下的解包操作&lt;/p&gt;
+
+&lt;p&gt;19160313-eb52d9a2b7944ee3bf925f0cbc5380e&lt;/p&gt;
+
+&lt;p&gt;A：该操作最好的文件系统是EXT4&lt;/p&gt;
+
+&lt;p&gt;这次操作会受到缓存和延时分配的影响，我们强制同步看看效果&lt;/p&gt;
+
+&lt;p&gt;19160744-0da511a06cd8408cb110035fef49728&lt;/p&gt;
+
+&lt;p&gt;A：XFS是较慢的FS，EXT3慢于EXT4和BTRFS&lt;/p&gt;
+
+&lt;p&gt;12：cat操作&lt;/p&gt;
+
+&lt;p&gt;19161027-921c24bd21514e8082c3a45db568c95&lt;/p&gt;
+
+&lt;p&gt;A：该操作比较有效率的系统是XFS&lt;/p&gt;
+
+&lt;p&gt;B：该执行最快CPU占用最高的系统是BTRFS，，说明该系统有复杂的元数据操作&lt;/p&gt;
+
+&lt;p&gt;13：解压linux核心（会产生32000 files）&lt;/p&gt;
+
+&lt;p&gt;19161847-67ffe1b1de04442bbf60a59bbc71baf&lt;/p&gt;
+
+&lt;p&gt;A：EXT3这个唯一没有延时分配能力的系统是最差的&lt;/p&gt;
+
+&lt;p&gt;14：顺序创建128个文件，每个长16 MB（共2 GB）各种系统产生的碎片情况&lt;/p&gt;
+
+&lt;p&gt;19162541-cedd02f7b42748e4891b8a33da29a3b&lt;/p&gt;
+
+&lt;p&gt;A：BTRFS系统碎片是个严重的问题（这也解释了先前的这种系统读性能低下的原因）&lt;/p&gt;
+
+&lt;p&gt;出去BTRFS系统后的图&lt;/p&gt;
+
+&lt;p&gt;19162731-429890396d0a4f84b5a2e228d528e58&lt;/p&gt;
+
+&lt;p&gt;A：EXT4，XFS这种有延时分配机制的系统产生的碎片少于EXT3（即使one write/one fsync()）&lt;/p&gt;
+
+&lt;p&gt;15：随机创建128个文件，每个长16 MB（共2 GB）各种系统产生的碎片情况&lt;/p&gt;
+
+&lt;p&gt;19163804-75f18afa6fd040249c5100a7ad84fce&lt;/p&gt;
+
+&lt;p&gt;A：随机写入在任何系统下都会产生碎片，即使有延时分配也没用&lt;/p&gt;
+
+&lt;p&gt;Linux kernel 自 2.6.28&lt;br /&gt;
+开 始正式支持新的文件系统 Ext4。 Ext4 是 Ext3 的改进版，修改了 Ext3 中部分重要的数据结构，而不仅仅像 Ext3 对&lt;br /&gt;
+Ext2 那样，只是增加了一个日志功能而已。Ext4 可以提供更佳的性能和可靠性，还有更为丰富的功能：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;与 Ext3 兼容。执行若干条命令，就能从 Ext3 在线迁移到 Ext4，而无须重新格式化磁盘或重新安装系统。原有 Ext3 数据结构照样保留，Ext4 作用于新数据，当然，整个文件系统因此也就获得了 Ext4 所支持的更大容量。&lt;/li&gt;
+  &lt;li&gt;更大的文件系统和更大的文件。较之 Ext3 目前所支持的最大 16TB 文件系统和最大 2TB 文件，Ext4 分别支持 1EB（1,048,576TB， 1EB=1024PB， 1PB=1024TB）的文件系统，以及 16TB 的文件。&lt;/li&gt;
+  &lt;li&gt;无限数量的子目录。Ext3 目前只支持 32,000 个子目录，而 Ext4 支持无限数量的子目录。&lt;/li&gt;
+  &lt;li&gt;Extents。Ext3 采用间接块映射，当操作大文件时，效率极其低下。比如一个 100MB 大小的文件，在 Ext3 中要建立 25,600 个数据块（每个数据块大小为 4KB）的映射表。而 Ext4 引入了现代文件系统中流行的 extents 概念，每个 extent为一组连续的数据块，上述文件则表示为“ 该文件数据保存在接下来的 25,600 个数据块中”，提高了不少效率。&lt;/li&gt;
+  &lt;li&gt;多块分配。当写入数据到Ext3文件系统中时，Ext3的数据块分配器每次只能分配一个4KB的块，写一个100MB 文件就要调用25,600次数据 块分配器，而 Ext4 的多块分配器“multiblock allocator”（mballoc） 支持一次调用分配多个数据块。&lt;/li&gt;
+  &lt;li&gt;延迟分配。Ext3 的数据块分配策略是尽快分配，而 Ext4 和其它现代文件操作系统的策略是尽可能地延迟分配，直到文件在 cache 中写完才开始分配数据块并写入磁盘，这样就能优化整个文件的数据块分配，与前两种特性搭配起来可以显著提升性能。&lt;/li&gt;
+  &lt;li&gt;快速 fsck。以前执行 fsck 第一步就会很慢，因为它要检查所有的 inode，现在 Ext4 给每个组的 inode 表中都添加了一份未使用 inode 的列表，今后 fsck Ext4 文件系统就可以跳过它们而只去检查那些在用的 inode 了。&lt;/li&gt;
+  &lt;li&gt;日志校验。日志是最常用的部分，也极易导致磁盘硬件故障，而从损坏的日志中恢复数据会导致更多的数据损坏。Ext4 的日志校验功能可以很方便地判断日志数据是否损坏，而且它将 Ext3 的两阶段日志机制合并成一个阶段，在增加安全性的同时提高了性能。&lt;/li&gt;
+  &lt;li&gt;“无日志”（No Journaling）模式。日志总归有一些开销，Ext4 允许关闭日志，以便某些有特殊需求的用户可以借此提升性能。&lt;/li&gt;
+  &lt;li&gt;在线碎片整理。尽管延迟分配、多块分配和 extents 能有效减少文件系统碎片，但碎片还是不可避免会产生。Ext4 支持在线碎片整理，并将提供 e4defrag 工具进行个别文件或整个文件系统的碎片整理。&lt;/li&gt;
+  &lt;li&gt;inode 相关特性。Ext4 支持更大的 inode，较之 Ext3 默认的 inode 大小 128 字节，Ext4 为了在 inode 中容纳更多的扩展属性（如纳秒时间戳或 inode 版本），默认 inode 大小为 256 字节。Ext4 还支持快速扩展属性（fast extendedattributes） 和 inode 保留（inodes reservation）。&lt;/li&gt;
+  &lt;li&gt;持久预分配（Persistent preallocation）。P2P 软件为了保证下载文件有足够的空间存放，常常会预先创建一个与所下载文件大小相同的空文件，以免未来的数小时或数天之内磁盘空间不足导致下载失 败。Ext4 在文件系统层面实现了持久预分配并提供相应的 API（libc 中的 posix_fallocate()），比应用软件自己实现更有效率。&lt;/li&gt;
+  &lt;li&gt;默认启用 barrier。磁盘 上配有内部缓存，以便重新调整批量数据的写操作顺序，优化写入性能，因此文件系统必须在日志数据写入磁盘之后才能写 commit 记录， 若commit 记录写入在先，而日志有可能损坏，那么就会影响数据完整性。Ext4 默认启用 barrier，只有当 barrier 之前的数据全部写入磁盘，才能写 barrier 之后的数据。（可通过 “mount -o barrier=0” 命令禁用该特性。）&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;转载原文地址: http://michaelkang.blog.51cto.com/1553154/1353203&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>MySQL写入插入数据优化配置</title>
+   <link href="http://localhost:18000/mysql/2014/12/23/MySQL%E5%86%99%E5%85%A5%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE%E4%BC%98%E5%8C%96%E9%85%8D%E7%BD%AE/"/>
+   <updated>2014-12-23T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/12/23/MySQL写入插入数据优化配置</id>
+   <content type="html">&lt;p&gt;MySQL写入插入数据优化配置&lt;/p&gt;
+
+&lt;p&gt;文章重点介绍mysql写入优化，这里针对mysql的Innodb与MyISAM存储引擎来进行解说，希望文章来给大家带来帮助哦。&lt;br /&gt;
+*innodb_buffer_pool_size&lt;/p&gt;
+
+&lt;p&gt;如果用Innodb，那么这是一个重要变量。相对于MyISAM来说，Innodb对于buffer size更敏感。MySIAM可能对于大数据量使用默认的key_buffer_size也还好，但Innodb在大数据量时用默认值就感觉在爬了。 Innodb的缓冲池会缓存数据和索引，所以不需要给系统的缓存留空间，如果只用Innodb，可以把这个值设为内存的70%-80%。和 key_buffer相同，如果数据量比较小也不怎么增加，那么不要把这个值设太高也可以提高内存的使用率&lt;/p&gt;
+
+&lt;p&gt;*innodb_additional_pool_size&lt;/p&gt;
+
+&lt;p&gt;这个的效果不是很明显，至少是当操作系统能合理分配内存时。但你可能仍需要设成20M或更多一点以看Innodb会分配多少内存做其他用途&lt;/p&gt;
+
+&lt;p&gt;*innodb_log_file_size&lt;/p&gt;
+
+&lt;p&gt;对于写很多尤其是大数据量时非常重要。要注意，大的文件提供更高的性能，但数据库恢复时会用更多的时间。我一般用64M-512M，具体取决于服务器的空间&lt;/p&gt;
+
+&lt;p&gt;*innodb_log_buffer_size&lt;/p&gt;
+
+&lt;p&gt;默认值对于多数中等写操作和事务短的运用都是可以的。如果经常做更新或者使用了很多blob数据，应该增大这个值。但太大了也是浪费内存，因为1秒钟总会 flush（这个词的中文怎么说呢？）一次，所以不需要设到超过1秒的需求。8M-16M一般应该够了。小的运用可以设更小一点&lt;/p&gt;
+
+&lt;p&gt;innodb_flush_log_at_trx_commit （这个很管用&lt;/p&gt;
+
+&lt;p&gt;抱怨Innodb比MyISAM慢 100倍？那么你大概是忘了调整这个值。默认值1的意思是每一次事务提交或事务外的指令都需要把日志写入（flush）硬盘，这是很费时的。特别是使用电 池供电缓存（Battery backed up cache）时。设成2对于很多运用，特别是从MyISAM表转过来的是可以的，它的意思是不写入硬盘而是写入系统缓存。日志仍然会每秒flush到硬 盘，所以你一般不会丢失超过1-2秒的更新。设成0会更快一点，但安全方面比较差，即使MySQL挂了也可能会丢失事务的数据。而值2只会在整个操作系统 挂了时才可能丢数据。&lt;/p&gt;
+
+&lt;p&gt;上面是网上看的，我发现慢查询日志内有很多update和insert的查询，就把innodb_flush_log_at_trx_commit改成了2，效果很明显，改成0会更明显，但安全性比较差。做下面的操作启动mysqld就生效&lt;/p&gt;
+
+&lt;p&gt;vim /etc/my.cn&lt;/p&gt;
+
+&lt;p&gt;innodb_flush_log_at_trx_commit=2&lt;/p&gt;
+
+&lt;p&gt;也可以在mysqld运行时执行&lt;/p&gt;
+
+&lt;p&gt;set GLOBAL innodb_flush_log_at_trx_commit = 2&lt;/p&gt;
+
+&lt;p&gt;下面是mysql手册上innodb_flush_log_at_trx_commit的解释&lt;/p&gt;
+
+&lt;p&gt;如果innodb_flush_log_at_trx_commit设置为0，log buffer将每秒一次地写入log file中，并且log file的flush(刷到磁盘)操作同时进行；但是，这种模式下，在事务提交的时候，不会有任何动作。如果 innodb_flush_log_at_trx_commit设置为1(默认值)，log buffer每次事务提交都会写入log file，并且，flush刷到磁盘中去。如果innodb_flush_log_at_trx_commit设置为2，log buffer在每次事务提交的时候都会写入log file，但是，flush(刷到磁盘)操作并不会同时进行。这种模式下，MySQL会每秒一次地去做flush(刷到磁盘)操作。注意：由于进程调度策 略问题，这个“每秒一次的flush(刷到磁盘)操作”并不是保证100%的“每秒”&lt;/p&gt;
+
+&lt;p&gt;默认值1是为了ACID (atomicity, consistency, isolation, durability)原子性，一致性，隔离性和持久化的考虑。如果你不把innodb_flush_log_at_trx_commit设置为1，你将获得更好的性能，但是，你在系统崩溃的情况，可能会丢失最多一秒钟的事务数据。当你把innodb_flush_log_at_trx_commit设置 为0，mysqld进程的崩溃会导致上一秒钟所有事务数据的丢失。如果你把innodb_flush_log_at_trx_commit设置为2，只有在操作系统崩溃或者系统掉电的情况下，上一秒钟所有事务数据才可能丢失。InnoDB的crash recovery崩溃恢复机制并不受这个值的影响，不管这个值设置为多少，crash recovery崩溃恢复机制都会工作。&lt;/p&gt;
+
+&lt;p&gt;另外innodb_flush_method参数也值得关注，对写操作有影响&lt;/p&gt;
+
+&lt;p&gt;innodb_flush_method： 设置InnoDB同步IO的方式&lt;/p&gt;
+
+&lt;p&gt;1) Default – 使用fsync（）&lt;/p&gt;
+
+&lt;p&gt;2) O_SYNC 以sync模式打开文件，通常比较慢&lt;/p&gt;
+
+&lt;p&gt;3) O_DIRECT，在Linux上使用Direct IO。可以显著提高速度，特别是在RAID系统上。避免额外的数据复制和double buffering（mysql buffering 和OS buffering）。&lt;/p&gt;
+
+&lt;p&gt;原文链接:  http://www.111cn.net/database/mysql/56376.htm&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>MySQL中计算sql语句影响行数的函数</title>
+   <link href="http://localhost:18000/mysql/2014/12/03/MySQL%E4%B8%AD%E8%AE%A1%E7%AE%97sql%E8%AF%AD%E5%8F%A5%E5%BD%B1%E5%93%8D%E8%A1%8C%E6%95%B0%E7%9A%84%E5%87%BD%E6%95%B0/"/>
+   <updated>2014-12-03T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/12/03/MySQL中计算sql语句影响行数的函数</id>
+   <content type="html">&lt;p&gt;MySQL中计算sql语句影响行数的函数&lt;/p&gt;
+
+&lt;p&gt;SELECT语句中经常可能用LIMIT限制返回行数。有时候可能想要知道如果没有LIMIT会返回多少行，但又不想再执行一次相同语句。那么，在SELECT查询中包含SQL_CALC_FOUND_ROWS选项，然后执行FOUND_ROWS()就可以了：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; SELECT SQL_CALC_FOUND_ROWS * FROM tbl_name
+    -&amp;gt; WHERE id &amp;gt; 100 LIMIT 10;
+mysql&amp;gt; SELECT FOUND_ROWS（）
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;第二个SELECT将返回第一条SELECT如果没有LIMIT时返回的行数,&lt;br /&gt;
+如果在前一条语句中没有使用SQL_CALC_FOUND_ROWS选项，FOUND_ROWS()将返回前一条语句实际返回的行数。&lt;/p&gt;
+
+&lt;p&gt;FOUND_ROWS()得到的数字是临时的，执行下一条语句就会失效。如果想要这个数字，就要将它保存下来：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; SELECT SQL_CALC_FOUND_ROWS * FROM ... ;
+mysql&amp;gt; SET @rows = FOUND_ROWS();
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;如果使用 SELECT SQL_CALC_FOUND_ROWS，MySQL必须计算所有结果集的行数。尽管这样，&lt;br /&gt;
+总比再执行一次不使用LIMIT的查询要快多了吧，因为那样结果集要返回客户端的。&lt;/p&gt;
+
+&lt;p&gt;原文地址: http://samyu.blog.51cto.com/344284/146042&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>哈佛校训</title>
+   <link href="http://localhost:18000/learn/2014/11/13/%E5%93%88%E4%BD%9B%E6%A0%A1%E8%AE%AD/"/>
+   <updated>2014-11-13T00:00:00+08:00</updated>
+   <id>http://localhost:18000/learn/2014/11/13/哈佛校训</id>
+   <content type="html">&lt;p&gt;哈佛大学校训：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;This moment will nap, you will have a dream; but this moment study, you will interpret a dream.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;此刻打盹，你将做梦；而此刻学习，你将圆梦。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;I leave uncultivated today, was precisely yesterday perishes tomorrow which person of the body implored.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;我荒废的今日，正是昨日殒身之人祈求的明日。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Thought is already is late, exactly is the earliest time.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;觉得为时已晚的时候，恰恰是最早的时候。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Not matter of the today will drag tomorrow.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;勿将今日之事拖到明日。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Time the study pain is temporary, has not learned the pain is life-long.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;学习时的苦痛是暂时的，未学到的痛苦是终生的。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Studies this matter, lacks the time, but is lacks diligently.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;学习这件事，不是缺乏时间，而是缺乏努力。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Perhaps happiness does not arrange the position, but succeeds must arrange the position.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;幸福或许不排名次，但成功必排名次。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;The study certainly is not the life complete. But, since continually life part of - studies also are unable to conquer, what but also can make?&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;学习并不是人生的全部。但，既然连人生的一部分——学习也无法征服，还能做什么呢？&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Please enjoy the pain which is unable to avoid.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;请享受无法回避的痛苦。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Only has compared to the others early, diligently, can feel the successful taste.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;只有比别人更早、更勤奋地努力，才能尝到成功的滋味。11. Nobody can casually succeed; it comes from the thorough self-control and the will.&lt;/p&gt;
+
+&lt;p&gt;谁也不能随随便便成功，它来自彻底的自我管理和毅力。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;The time is passing.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;时间在流逝。&lt;/p&gt;
+
+&lt;p&gt;原文地址:  http://www.bigear.cn/newsclick-113-108879-147476.html&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>MySQL内存使用-线程独享</title>
+   <link href="http://localhost:18000/mysql/2014/06/26/MySQL%E5%86%85%E5%AD%98%E4%BD%BF%E7%94%A8-%E7%BA%BF%E7%A8%8B%E7%8B%AC%E4%BA%AB/"/>
+   <updated>2014-06-26T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/26/MySQL内存使用-线程独享</id>
+   <content type="html">&lt;p&gt;MySQL内存使用-线程独享&lt;/p&gt;
+
+&lt;p&gt;对于任何一个数据库管理系统来说，内存的分配使用绝对可以算的上是其核心之一了，所以很多希望更为深入了解某数据库管理系统的人，都会希望一窥究竟，我也不例外。&lt;/p&gt;
+
+&lt;p&gt;从内存的使用方式MySQL 数据库的内存使用主要分为以下两类&lt;/p&gt;
+
+&lt;p&gt;线程独享内存&lt;br /&gt;
+全局共享内存&lt;br /&gt;
+今天这篇文章暂时先分析 MySQL 中主要的 “线程独享内存” 的。&lt;/p&gt;
+
+&lt;p&gt;在 MySQL 中，线程独享内存主要用于各客户端连接线程存储各种操作的独享数据，如线程栈信息，分组排序操作，数据读写缓冲，结果集暂存等等，而且大多数可以通过相关参数来控制内存的使用量。&lt;/p&gt;
+
+&lt;p&gt;线程栈信息使用内存(thread_stack)：主要用来存放每一个线程自身的标识信息，如线程id，线程运行时基本信息等等，我们可以通过 thread_stack 参数来设置为每一个线程栈分配多大的内存。&lt;/p&gt;
+
+&lt;p&gt;排序使用内存(sort_buffer_size)：MySQL 用此内存区域进行排序操作（filesort），完成客户端的排序请求。当我们设置的排序区缓存大小无法满足排序实际所需内存的时候，MySQL 会将数据写入磁盘文件来完成排序。由于磁盘和内存的读写性能完全不在一个数量级，所以sort_buffer_size参数对排序操作的性能影响绝对不可小视。排序操作的实现原理请参考：MySQL Order By 的实现分析。&lt;/p&gt;
+
+&lt;p&gt;Join操作使用内存(join_buffer_size)：应用程序经常会出现一些两表（或多表）Join的操作需求，MySQL在完成某些 Join 需求的时候（all/index join），为了减少参与Join的“被驱动表”的读取次数以提高性能，需要使用到 Join Buffer 来协助完成 Join操作（具体 Join 实现算法请参考：MySQL 中的 Join 基本实现原理）。当 Join Buffer 太小，MySQL 不会将该 Buffer 存入磁盘文件，而是先将Join Buffer中的结果集与需要 Join 的表进行 Join 操作，然后清空 Join Buffer 中的数据，继续将剩余的结果集写入此 Buffer 中，如此往复。这势必会造成被驱动表需要被多次读取，成倍增加 IO 访问，降低效率。&lt;/p&gt;
+
+&lt;p&gt;顺序读取数据缓冲区使用内存(read_buffer_size)：这部分内存主要用于当需要顺序读取数据的时候，如无发使用索引的情况下的全表扫描，全索引扫描等。在这种时候，MySQL 按照数据的存储顺序依次读取数据块，每次读取的数据快首先会暂存在read_buffer_size中，当 buffer 空间被写满或者全部数据读取结束后，再将buffer中的数据返回给上层调用者，以提高效率。&lt;/p&gt;
+
+&lt;p&gt;随机读取数据缓冲区使用内存(read_rnd_buffer_size)：和顺序读取相对应，当 MySQL 进行非顺序读取（随机读取）数据块的时候，会利用这个缓冲区暂存读取的数据。如根据索引信息读取表数据，根据排序后的结果集与表进行Join等等。总的来说，就是当数据块的读取需要满足一定的顺序的情况下，MySQL 就需要产生随机读取，进而使用到 read_rnd_buffer_size 参数所设置的内存缓冲区。&lt;/p&gt;
+
+&lt;p&gt;连接信息及返回客户端前结果集暂存使用内存(net_buffer_size)：这部分用来存放客户端连接线程的连接信息和返回客户端的结果集。当 MySQL 开始产生可以返回的结果集，会在通过网络返回给客户端请求线程之前，会先暂存在通过 net_buffer_size 所设置的缓冲区中，等满足一定大小的时候才开始向客户端发送，以提高网络传输效率。不过，net_buffer_size 参数所设置的仅仅只是该缓存区的初始化大小，MySQL 会根据实际需要自行申请更多的内存以满足需求，但最大不会超过 max_allowed_packet 参数大小。&lt;/p&gt;
+
+&lt;p&gt;批量插入暂存使用内存(bulk_insert_buffer_size)：当我们使用如 insert … values(…),(…),(…)… 的方式进行批量插入的时候，MySQL 会先将提交的数据放如一个缓存空间中，当该缓存空间被写满或者提交完所有数据之后，MySQL 才会一次性将该缓存空间中的数据写入数据库并清空缓存。此外，当我们进行 LOAD DATA INFILE 操作来将文本文件中的数据 Load 进数据库的时候，同样会使用到此缓冲区。&lt;/p&gt;
+
+&lt;p&gt;临时表使用内存(tmp_table_size)：当我们进行一些特殊操作如需要使用临时表才能完成的 Order By，Group By 等等，MySQL 可能需要使用到临时表。当我们的临时表较小（小于 tmp_table_size 参数所设置的大小）的时候，MySQL 会将临时表创建成内存临时表，只有当 tmp_table_size 所设置的大小无法装下整个临时表的时候，MySQL 才会将该表创建成 MyISAM 存储引擎的表存放在磁盘上。不过，当另一个系统参数 max_heap_table_size 的大小还小于 tmp_table_size 的时候，MySQL 将使用 max_heap_table_size 参数所设置大小作为最大的内存临时表大小，而忽略 tmp_table_size 所设置的值。而且 tmp_table_size 参数从 MySQL 5.1.2 才开始有，之前一直使用 max_heap_table_size。&lt;/p&gt;
+
+&lt;p&gt;上面所列举的 MySQL 线程独享内存仅仅只是所有线程独享内存中的部分，并不是全部，选择的原则是可能对 MySQL 的性能产生较大的影响，且可以通过系统参数进行调节。&lt;/p&gt;
+
+&lt;p&gt;由于以上内存都是线程独享，极端情况下的内存总体使用量将是所有连接线程的总倍数。所以各位朋友在设置过程中一定要谨慎，切不可为了提升性能就盲目的增大各参数值，避免因为内存不够而产生 Out Of Memory 异常或者是严重的 Swap 交换反而降低整体性能。&lt;/p&gt;
+
+&lt;p&gt;flycondor Says @ 09-04-19 9:12 pm&lt;/p&gt;
+
+&lt;p&gt;关于sort_buffer_size，补充一下：&lt;br /&gt;
+“当我们设置的排序区缓存大小无法满足排序实际所需内存的时候，MySQL 会将数据写入磁盘文件来完成排序”&lt;br /&gt;
+严格来说，是需要创建临时文件。临时文件，可以用内存文件系统tmpfs，未必一定会有写磁盘的操作。 相反，为了避免创建临时文件而一味加到sort_buffer_size，反倒会降低排序的速度。 因为实践证明(没有理论依据)，sort buffer是在需要时候动态分配的，malloc比较大块内存的开销还是比较大的。&lt;/p&gt;
+
+&lt;p&gt;flycondor Says @ 09-04-19 9:13 pm&lt;/p&gt;
+
+&lt;p&gt;补充推荐两篇文章：&lt;br /&gt;
+http://www.mysqlperformanceblog.com/2007/08/18/how-fast-can-you-sort-data-with-mysql/&lt;br /&gt;
+http://www.mysqlperformanceblog.com/2006/06/06/are-larger-buffers-always-better/&lt;/p&gt;
+
+&lt;p&gt;朝阳 Says @ 09-04-19 9:59 pm&lt;/p&gt;
+
+&lt;p&gt;@flycondor&lt;br /&gt;
+多谢补充，我原意其实也是写临时文件，不过使用tmpfs来作为MySQL的临时文件目录是一个具有非常高风险的决策哦，很可能因为内存不够造成 Out Of Memory 的，我就遇到过，呵呵。&lt;br /&gt;
+一味增大 sort_buffer_size 有些时候确实会出现适得其反的效果，sort buffer 也确实是动态申请的，可以从代码中看出来&lt;/p&gt;
+
+&lt;p&gt;作者：Sky.Jian | 可以任意转载, 但转载时务必以超链接形式标明文章原始出处 和 作者信息 及 版权声明 &lt;br /&gt;
+链接：http://isky000.com/database/mysql-memory-thread-private&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>MySQL学习分享--机型选择与配置</title>
+   <link href="http://localhost:18000/mysql/2014/06/25/MySQL%E5%AD%A6%E4%B9%A0%E5%88%86%E4%BA%AB-%E6%9C%BA%E5%9E%8B%E9%80%89%E6%8B%A9%E4%B8%8E%E9%85%8D%E7%BD%AE/"/>
+   <updated>2014-06-25T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/25/MySQL学习分享--机型选择与配置</id>
+   <content type="html">&lt;p&gt;MySQL学习分享–机型选择与配置&lt;/p&gt;
+
+&lt;p&gt;由于长期以来，一直忙于日常的工作，自身的学习和提高有所懈怠，最近越发明显感到今年的成长和进步幅度较上年有所降低。因此，从今天开始，坚持非工作时间，潜心学习和研究一些技术，每周汇总一下学习成果，一方面提高自己的技术能力和技术深度，另一方面分享给大家，互相交流。&lt;/p&gt;
+
+&lt;p&gt;1、《Inexpensive SSDs for Database Workloads》&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;随着SSD的成本不断降低，数据库机型如何选择以及如何更好的利用SSD。文中指出，对于之前担心SSD的写寿命问题，现在来看完全没有必要担心，在过保期内，完全不会成为问题。而在选择SSD的容量和选型时，需要根据业务的DB压力情况来选择，SSD最终会降低机器的IO压力，整体性能。
+在使用SSD的使用方面，文中指出从应用和数据库层面来优化，减少对SSD的写入，更好的保护和延长SSD的寿命。值得注意是：
+1）DoubleWrite数据单独存放，并放在HDD上。DoubleWrite单独存放在以下内容中介绍，存放在HDD上，是由于DoubleWrite是顺序读写。
+2）事务日志存放在HDD上。原因也是顺序读写，使用HDD和Raid卡cache即可。
+3）binlog日志存放在HDD上。binlog的读写也是顺序的，使用HDD即可。
+4）临时空间建议使用tmpfs，即系统的/tmp目录。临时目录写入频繁，且顺序读写较多。
+5）BufferPool增大。这样可以提高内存命中率，减少磁盘IO。
+6）innodb事务日志增大。SSD的读写性能，可以减少恢复的时间。
+7）innodb使用压缩。通过压缩，减少写入的数据量。
+8）使用高压缩比的存储引擎。更高的压缩比，可以更大程度的减少写入的数据量。
+从个人角度来看，SSD的成本会高一些，但是由于提高了单机的性能，会减少机器的数量和机柜成本投入、以及运维成本，对于规模化运维来说，的确是利大于弊。SSD的使用方面，大多数可以值得借鉴，但有些需要根据自己的需求进行选择。例如：在单机多实例的情况下，连续IO操作也变成随机IO，放在HDD对性能的影响较大，这些在统一化部署过程中，很多都尝试并付出了惨痛的教训。
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;2、《Configuration of the Doublewrite Buffer》&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;MySQL引入DoubleWrite主要是为了避免BufferPool中的数据部分写入到磁盘，而导致无法数据恢复的问题。正常情况下，DoubleWrite引入会影响5%~10%的性能损失。然而，在写入压力较大时，写入DoubleWrite就会与BufferPool的随机写入产生竞争，性能影响就会加剧。
+Percona Server引入DoubleWrite独立文件（参数innodb_doublewrite_file），从共用表空间中分离出来。由于DoubleWrite写入是顺序的，官方建议使用HDD存放，并且最好存放在独立磁盘空间下，也可以与redo日志放在相同磁盘下。
+个人认为，目前情况下，DoubleWrite不会造成很大的性能损失，并且如果系统文件层能够保证数据完整性的话，可以禁用DoubleWrite。此外，该参数的引入，还需要充分的性能测试和验证。
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;参考资料
+1、《Inexpensive SSDs for Database Workloads》http://www.mysqlperformanceblog.com/2013/10/03/inexpensive-ssds-database-workloads/&lt;br /&gt;
+2、《Configuration of the Doublewrite Buffer》http://www.percona.com/doc/percona-server/5.5/performance/innodb_doublewrite_path.html?id=percona-server:features:percona_innodb_doublewrite_path&lt;/p&gt;
+
+&lt;p&gt;原文地址：http://blog.chinaunix.net/uid-26896862-id-3947862.html 作者：king_wangheng&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>MySQL索引使用方法和性能优化</title>
+   <link href="http://localhost:18000/mysql/2014/06/18/MySQL%E7%B4%A2%E5%BC%95%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95%E5%92%8C%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/"/>
+   <updated>2014-06-18T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/18/MySQL索引使用方法和性能优化</id>
+   <content type="html">&lt;p&gt;MySQL索引使用方法和性能优化&lt;/p&gt;
+
+&lt;p&gt;走向精通MySQL的道路非常的艰难，还好各种关系型数据库大同小异，足够让我从增删改查上升到高性能数据库的架构和调优。这期间的各种概念就不絮叨了，我也很难表述的很清楚，昨天写了个小脚本往我本机MySQL数据库的某张表里面注入了200万条数据(Windows7旗舰版/1.66GHz/2G内存/MySQL5.1.50)，数据表的结构如下图所示，属于一个比较基本的定长表，考虑到我可怜的本本的承受能力，id使用从1开始的自增，title字段为随机20个标题中的一个，content都是相同的内容，time使用时间戳而非datetime类型，即10位整型数据。&lt;br /&gt;
+就是这么一个结构极其简单的表，200万数量级的复杂查询将会变的非常缓慢，比如执行下面的SQL语句。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;SELECT a.id,FROM_UNIXTIME(a.time)
+FROM article AS a
+WHERE a.title=‘PHP笔试题和答案——基础语言方面’
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;查询时间基本上需要50-100秒，这个是非常恐怖的，如果加上联合查询和其他一些约束条件，数据库会疯狂的消耗内存。&lt;br /&gt;
+如果这时候数据库里面针对title字段建立了索引，查询效率将会大幅度提升，如下图所示。可见对于大型数据库，建立索引是非常非常重要的一个优化手段（当然还会有很多其他优化这样的数据库的方法，但是本文主题所限，暂不讨论。），废话了这么多，以下开始总结MySQL中索引的使用方法和性能优化以及一些注意事项。&lt;/p&gt;
+
+&lt;p&gt;索引的概念&lt;br /&gt;
+索引是一种特殊的文件(InnoDB数据表上的索引是表空间的一个组成部分)，它们包含着对数据表里所有记录的引用指针。更通俗的说，数据库索引好比是一本书前面的目录，能加快数据库的查询速度。上述SQL语句，在没有索引的情况下，数据库会遍历全部200条数据后选择符合条件的；而有了相应的索引之后，数据库会直接在索引中查找符合条件的选项。如果我们把SQL语句换成“SELECT * FROM article WHERE id=2000000”，那么你是希望数据库按照顺序读取完200万行数据以后给你结果还是直接在索引中定位呢？上面的两个图片鲜明的用时对比已经给出了答案（注：一般数据库默认都会为主键生成索引）。&lt;br /&gt;
+索引分为聚簇索引和非聚簇索引两种，聚簇索引是按照数据存放的物理位置为顺序的，而非聚簇索引就不一样了；聚簇索引能提高多行检索的速度，而非聚簇索引对于单行的检索很快。&lt;/p&gt;
+
+&lt;p&gt;索引的类型&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;普通索引&lt;br /&gt;
+这是最基本的索引，它没有任何限制，比如上文中为title字段创建的索引就是一个普通索引。&lt;br /&gt;
+–直接创建索引&lt;br /&gt;
+CREATE INDEX indexName ON table(column(length))&lt;br /&gt;
+–修改表结构的方式添加索引&lt;br /&gt;
+ALTER tableADD INDEX indexName ON (column(length))&lt;br /&gt;
+–创建表的时候同时创建索引&lt;/p&gt;
+
+    &lt;p&gt;CREATE TABLE &lt;code class=&quot;highlighter-rouge&quot;&gt;table&lt;/code&gt; (&lt;br /&gt;
+ &lt;code class=&quot;highlighter-rouge&quot;&gt;id&lt;/code&gt; int(11) NOT NULL AUTO_INCREMENT ,
+ &lt;code class=&quot;highlighter-rouge&quot;&gt;title&lt;/code&gt; char(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,
+ &lt;code class=&quot;highlighter-rouge&quot;&gt;content&lt;/code&gt; text CHARACTER SET utf8 COLLATE utf8_general_ci NULL ,
+ &lt;code class=&quot;highlighter-rouge&quot;&gt;time&lt;/code&gt; int(10) NULL DEFAULT NULL ,
+ PRIMARY KEY (&lt;code class=&quot;highlighter-rouge&quot;&gt;id&lt;/code&gt;),
+ INDEX indexName (title(length))
+ )&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;–删除索引&lt;br /&gt;
+DROP INDEX indexName ON table&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;唯一索引&lt;br /&gt;
+与普通索引类似，不同的就是：索引列的值必须唯一，但允许有空值（注意和主键不同）。如果是组合索引，则列值的组合必须唯一，创建方法和普通索引类似。&lt;br /&gt;
+–创建唯一索引&lt;br /&gt;
+CREATE UNIQUE INDEX indexName ON table(column(length))&lt;br /&gt;
+–修改表结构&lt;br /&gt;
+ALTER table ADD UNIQUE indexName ON (column(length))&lt;br /&gt;
+–创建表的时候直接指定&lt;br /&gt;
+CREATE TABLE &lt;code class=&quot;highlighter-rouge&quot;&gt;table&lt;/code&gt; (&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;id&lt;/code&gt; int(11) NOT NULL AUTO_INCREMENT ,&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;title&lt;/code&gt; char(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;content&lt;/code&gt; text CHARACTER SET utf8 COLLATE utf8_general_ci NULL ,&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;time&lt;/code&gt; int(10) NULL DEFAULT NULL ,&lt;br /&gt;
+PRIMARY KEY (&lt;code class=&quot;highlighter-rouge&quot;&gt;id&lt;/code&gt;),&lt;br /&gt;
+UNIQUE indexName (title(length))&lt;br /&gt;
+);&lt;/li&gt;
+  &lt;li&gt;全文索引（FULLTEXT）&lt;br /&gt;
+MySQL从3.23.23版开始支持全文索引和全文检索，FULLTEXT索引仅可用于 MyISAM 表；他们可以从CHAR、VARCHAR或TEXT列中作为CREATE TABLE语句的一部分被创建，或是随后使用ALTER TABLE 或CREATE INDEX被添加。////对于较大的数据集，将你的资料输入一个没有FULLTEXT索引的表中，然后创建索引，其速度比把资料输入现有FULLTEXT索引的速度更为快。不过切记对于大容量的数据表，生成全文索引是一个非常消耗时间非常消耗硬盘空间的做法。&lt;br /&gt;
+–创建表的适合添加全文索引&lt;br /&gt;
+CREATE TABLE &lt;code class=&quot;highlighter-rouge&quot;&gt;table&lt;/code&gt; (&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;id&lt;/code&gt; int(11) NOT NULL AUTO_INCREMENT ,&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;title&lt;/code&gt; char(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;content&lt;/code&gt; text CHARACTER SET utf8 COLLATE utf8_general_ci NULL ,&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;time&lt;/code&gt; int(10) NULL DEFAULT NULL ,&lt;br /&gt;
+PRIMARY KEY (&lt;code class=&quot;highlighter-rouge&quot;&gt;id&lt;/code&gt;),&lt;br /&gt;
+FULLTEXT (content)&lt;br /&gt;
+);&lt;br /&gt;
+–修改表结构添加全文索引&lt;br /&gt;
+ALTER TABLE article ADD FULLTEXT index_content(content)&lt;br /&gt;
+–直接创建索引&lt;br /&gt;
+CREATE FULLTEXT INDEX index_content ON article(content)&lt;/li&gt;
+  &lt;li&gt;单列索引、多列索引&lt;br /&gt;
+多个单列索引与单个多列索引的查询效果不同，因为执行查询时，MySQL只能使用一个索引，会从多个索引中选择一个限制最为严格的索引。&lt;/li&gt;
+  &lt;li&gt;组合索引（最左前缀）&lt;br /&gt;
+平时用的SQL查询语句一般都有比较多的限制条件，所以为了进一步榨取MySQL的效率，就要考虑建立组合索引。例如上表中针对title和time建立一个组合索引：ALTER TABLE article ADD INDEX index_titme_time (title(50),time(10))。建立这样的组合索引，其实是相当于分别建立了下面两组组合索引：&lt;br /&gt;
+–title,time&lt;br /&gt;
+–title&lt;br /&gt;
+为什么没有time这样的组合索引呢？这是因为MySQL组合索引“最左前缀”的结果。简单的理解就是只从最左面的开始组合。并不是只要包含这两列的查询都会用到该组合索引，如下面的几个SQL所示：&lt;br /&gt;
+–使用到上面的索引&lt;br /&gt;
+SELECT * FROM article WHREE title=“LED日光管” AND time=1234567890&lt;br /&gt;
+SELECT * FROM article WHREE utitle=“LED日光管”&lt;br /&gt;
+–不使用上面的索引&lt;br /&gt;
+SELECT * FROM article WHREE time=1234567890&lt;br /&gt;
+MySQL索引的优化&lt;br /&gt;
+上面都在说使用索引的好处，但过多的使用索引将会造成滥用。因此索引也会有它的缺点：虽然索引大大提高了查询速度，同时却会降低更新表的速度，如对表进行INSERT、UPDATE和DELETE。因为更新表时，MySQL不仅要保存数据，还要保存一下索引文件。建立索引会占用磁盘空间的索引文件。一般情况这个问题不太严重，但如果你在一个大表上创建了多种组合索引，索引文件的会膨胀很快。索引只是提高效率的一个因素，如果你的MySQL有大数据量的表，就需要花时间研究建立最优秀的索引，或优化查询语句。下面是一些总结以及收藏的MySQL索引的注意事项和优化方法。&lt;/li&gt;
+  &lt;li&gt;何时使用聚集索引或非聚集索引？&lt;br /&gt;
+动作描述 使用聚集索引 使用非聚集索引&lt;br /&gt;
+动作描述	使用聚集索引	使用非聚集索引&lt;br /&gt;
+列经常被分组排序	使用	使用&lt;br /&gt;
+返回某范围内的数据	使用	不使用&lt;br /&gt;
+一个或极少不同值	不使用	不使用&lt;br /&gt;
+小数目的不同值	使用	不使用&lt;br /&gt;
+大数目的不同值	不使用	使用&lt;br /&gt;
+频繁更新的列	不使用	使用&lt;br /&gt;
+外键列	使用	使用&lt;br /&gt;
+主键列	使用	使用&lt;br /&gt;
+频繁修改索引列	不使用	使用&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;事实上，我们可以通过前面聚集索引和非聚集索引的定义的例子来理解上表。如：返回某范围内的数据一项。比如您的某个表有一个时间列，恰好您把聚合索引建立在了该列，这时您查询2004年1月1日至2004年10月1日之间的全部数据时，这个速度就将是很快的，因为您的这本字典正文是按日期进行排序的，聚类索引只需要找到要检索的所有数据中的开头和结尾数据即可；而不像非聚集索引，必须先查到目录中查到每一项数据对应的页码，然后再根据页码查到具体内容。其实这个具体用法我还不是很理解，只能等待后期的项目开发中慢慢学学了。&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;索引不会包含有NULL值的列&lt;br /&gt;
+只要列中包含有NULL值都将不会被包含在索引中，复合索引中只要有一列含有NULL值，那么这一列对于此复合索引就是无效的。所以我们在数据库设计时不要让字段的默认值为NULL。&lt;/li&gt;
+  &lt;li&gt;使用短索引&lt;br /&gt;
+对串列进行索引，如果可能应该指定一个前缀长度。例如，如果有一个CHAR(255)的列，如果在前10个或20个字符内，多数值是惟一的，那么就不要对整个列进行索引。短索引不仅可以提高查询速度而且可以节省磁盘空间和I/O操作。&lt;/li&gt;
+  &lt;li&gt;索引列排序&lt;br /&gt;
+MySQL查询只使用一个索引，因此如果where子句中已经使用了索引的话，那么order by中的列是不会使用索引的。因此数据库默认排序可以符合要求的情况下不要使用排序操作；尽量不要包含多个列的排序，如果需要最好给这些列创建复合索引。&lt;/li&gt;
+  &lt;li&gt;like语句操作&lt;br /&gt;
+一般情况下不鼓励使用like操作，如果非使用不可，如何使用也是一个问题。like “%aaa%” 不会使用索引而like “aaa%”可以使用索引。&lt;/li&gt;
+  &lt;li&gt;不要在列上进行运算&lt;br /&gt;
+例如：select * from users where YEAR(adddate)&amp;lt;2007，将在每个行上进行运算，这将导致索引失效而进行全表扫描，因此我们可以改成：select * from users where adddate&amp;lt;’2007-01-01′。关于这一点可以围观：一个单引号引发的MYSQL性能损失。&lt;br /&gt;
+最后总结一下，MySQL只对一下操作符才使用索引：&amp;lt;,&amp;lt;=,=,&amp;gt;,&amp;gt;=,between,in,以及某些时候的like(不以通配符%或_开头的情形)。而理论上每张表里面最多可创建16个索引，不过除非是数据量真的很多，否则过多的使用索引也不是那么好玩的，比如我刚才针对text类型的字段创建索引的时候，系统差点就卡死了。&lt;br /&gt;
+最后的最后PS：现在更新个技术文章真难，还得做大量实验…&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;本文出自 “一个人飞” 博客，请务必保留此出处http://imfei.blog.51cto.com/1849649/511689&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>MySQL临时表</title>
+   <link href="http://localhost:18000/mysql/2014/06/18/MySQL%E4%B8%B4%E6%97%B6%E8%A1%A8/"/>
+   <updated>2014-06-18T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/18/MySQL临时表</id>
+   <content type="html">&lt;p&gt;MySQL临时表&lt;/p&gt;
+
+&lt;p&gt;首先，临时表只在当前连接可见，当关闭连接时，Mysql会自动删除表并释放所有空间。因此在不同的连接中可以创建同名的临时表，并且操作属于本连接的临时表。&lt;/p&gt;
+
+&lt;p&gt;创建临时表的语法与创建表语法类似，不同之处是增加关键字TEMPORARY，如：&lt;/p&gt;
+
+&lt;p&gt;CREATE TEMPORARY TABLE 表名 (…. )&lt;/p&gt;
+
+&lt;p&gt;临时表使用有一些限制条件：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;临时表在 memory、myisam、merge或者innodb上使用，并且不支持mysql cluster簇)；
+show tables语句不会列出临时表，在information_schema中也不存在临时表信息；show create table可以查看临时表；
+不能使用rename来重命名临时表。但是可以alter table rename代替：
+mysql&amp;gt;ALTER TABLE orig_name RENAME new_name; 　　可以复制临时表得到一个新的临时表，如：
+mysql&amp;gt;create temporary table new_table select * from old_table; 　　但在同一个query语句中，相同的临时表只能出现一次。如：
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;可以使用：mysql&amp;gt; select * from temp_tb;&lt;/p&gt;
+
+&lt;p&gt;但不能使用：mysql&amp;gt; select * from temp_tb, temp_tb as t;&lt;/p&gt;
+
+&lt;p&gt;错误信息：   ERROR 1137 (HY000): Can’t reopen table: ‘temp_tb’&lt;/p&gt;
+
+&lt;p&gt;同样相同临时表不能在存储函数中出现多次，如果在一个存储函数里，用不同的别名查找一个临时表多次，或者在这个存储函数里用不同的语句查找，都会出现这个错误。&lt;/p&gt;
+
+&lt;p&gt;但不同的临时表可以出现在同一个query语句中，如临时表temp_tb1, temp_tb2：&lt;/p&gt;
+
+&lt;p&gt;Mysql&amp;gt; select * from temp_tb1, temp_tb2;&lt;/p&gt;
+
+&lt;p&gt;临时表可以手动删除：&lt;/p&gt;
+
+&lt;p&gt;DROP TEMPORARY TABLE IF EXISTS temp_tb;&lt;/p&gt;
+
+&lt;p&gt;临时表主要用于对大数据量的表上作一个子集，提高查询效率。&lt;/p&gt;
+
+&lt;p&gt;在创建临时表时声明类型为HEAP，则Mysql会在内存中创建该临时表，即内存表：如：&lt;/p&gt;
+
+&lt;p&gt;CREATE TEMPORARY TABLE 表名 (。。。。) TYPE = HEAP&lt;/p&gt;
+
+&lt;p&gt;因为HEAP表存储在内存中，你对它运行的查询可能比磁盘上的临时表快些。如：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; create temporary table temp_tb type='heap' select * from temptb;
+
+Query OK, 0 rows affected, 1 warning (0.01 sec)
+
+Records: 0  Duplicates: 0  Warnings: 0
+
+ 
+
+mysql&amp;gt; show create table temp_tb \G;
+
+*************************** 1. row ***************************
+
+       Table: temp_tb
+
+Create Table: CREATE TEMPORARY TABLE `temp_tb` (
+
+  `id` int(10) unsigned NOT NULL DEFAULT '0',
+
+  `Name` char(20) NOT NULL,
+
+  `Age` tinyint(4) NOT NULL
+
+) ENGINE=MEMORY DEFAULT CHARSET=gbk
+
+1 row in set (0.00 sec)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;ERROR:&lt;/p&gt;
+
+&lt;p&gt;No query specified&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;     可以看出来临时表和内存表的ENGINE 不同，临时表默认的是Mysql指定的默认Engine,而内存表是MEMORY。
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;官方手册：
+As indicated by the name, MEMORY tables are stored in memory. They use hash indexes by default, which makes them very fast, and very useful for creating temporary tables. However, when the server shuts down, all rows stored in MEMORY tables are lost. The tables themselves continue to exist because their definitions are stored in .frm files on disk, but they are empty when the server restarts.&lt;/p&gt;
+
+&lt;p&gt;内存表的建立还有一些限制条件：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  MEMORY tables cannot contain        BLOB or TEXT columns. HEAP不支持BLOB/TEXT列。    
+  The server needs sufficient memory to maintain all   MEMORY tables that are in use at the same time. 在同一时间需要足够的内存.
+  To free memory used by a MEMORY table when   you no longer require its contents, you should execute DELETE or TRUNCATE TABLE, or remove the table altogether using DROP        TABLE.为了释放内存，你应该执行DELETE FROM heap_table或DROP TABLE heap_table。
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;临时表和内存表&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    临时表主要是为了放一些中间大结果集的一些子集，内存表可以放一些经常频繁使用的数据。
+
+    临时表：表建在内存里，数据在内存里
+    内存表：表建在磁盘里，数据在内存里
+
+    临时表和内存表所使用内存大小可以通过My.cnf中的max_heap_table_size、tmp_table_size指定：
+          [mysqld]
+          max_heap_table_size=1024M   #内存表容量
+          tmp_table_size=1024M              #临时表容量
+
+    当数据超过临时表的最大值设定时，自动转为磁盘表，此时因需要进行IO操作，性能会大大下降，而内存表不会，内存表满后，则会提示数据满错误。
+
+   show tables 命令不会显示临时表。
+
+    以下是对内存表和临时表之间区别的总结：
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;内存表：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    1．缺省存储引擎为MEMORY
+    2．可以通过参数max_heap_table_size来设定内存表大小
+    3．到达max_heap_table_size设定的内存上限后将报错
+    4．表定义保存在磁盘上，数据和索引保存在内存中
+    5．不能包含TEXT、BLOB等字段    临时表：
+
+    1．缺省存储引擎为MySQL服务器默认引擎，引擎类型只能是：memory（heap）、myisam、merge、innodb（memory临时表由于表的增大可能会转变为myisam临时表）
+    2．可以通过参数 tmp_table_size 来设定临时表大小。
+    3．到达tmp_table_size设定的内存上限后将在磁盘上创建临时文件
+    4．表定义和数据都保存在内存中
+    5．可以包含TEXT, BLOB等字段
+
+    临时表一般比较少用，通常是在应用程序中动态创建或者由MySQL内部根据SQL执行计划需要自己创建。
+
+    内存表则大多作为Cache来使用，特别在没有第三方cache使用时。如今随着memcache、NoSQL的流行，越来越少选择使用内存表。
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;MySQL服务器使用内部临时表&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    在某些情况下，mysql服务器会自动创建内部临时表。查看查询语句的执行计划，如果extra列显示“using temporary”即使用了内部临时表。内部临时表的创建条件：
+
+    *  group by 和 order by中的列不相同
+
+    *  order by的列不是引用from 表列表中 的第一表
+
+    *  group by的列不是引用from 表列表中 的第一表
+
+    *  使用了sql_small_result选项
+
+    *  含有distinct 的 order by语句
+
+    初始创建内部myisam临时表的条件：
+
+    *  表中存在text、blob列
+
+    *  在group by中的 列 有超过512字节
+
+    *  在distinct查询中的 列 有超过512字节
+
+    *  在union、union all联合查询中，select 列 列表中的 列 有超过512字节的
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;原文地址:  http://www.cnblogs.com/jevo/p/3262227.html&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Install_MySQL_Activity_Report_from_Source</title>
+   <link href="http://localhost:18000/mysql/2014/06/08/Install_MySQL_Activity_Report_from_Source/"/>
+   <updated>2014-06-08T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/08/Install_MySQL_Activity_Report_from_Source</id>
+   <content type="html">&lt;p&gt;Install MySQL Activity Report from Source&lt;/p&gt;
+
+&lt;p&gt;安装过程确实与下文叙述的差不多.  唯一有点遗憾的是,好像不能出图,这个我找了下原作者写的博客,上面提到了这个是个bug,说后面会解决,可惜没有下文了.&lt;/p&gt;
+
+&lt;p&gt;原作者与此工具相关的链接: http://fossies.org/linux/privat/mysqlard-1.0.0.tar.gz/mysqlard-1.0.0/man/mysqlar_graph.1&lt;br /&gt;
+                          https://fossies.org/linux/privat/old/mysqlard-1.0.0.tar.gz/mysqlard-1.0.0/man/mysqlar_graph.1&lt;br /&gt;
+在此链接可下载到源码包,但源码包也是没有包含图片的.  如果有人会修改这个,麻烦修改后分享下.&lt;br /&gt;
+MySQL Activity Report is a handy database reporting tool that uses RRD (Round Robin Database) to display hourly, daily, weekly, and monthly graphs and gives helpful performance tuning recommendations for your MySQL installation. Here are the steps to install it from source on Ubuntu Server 12.04.3 while logged in as root. This assumes that you have the build-essentials, header files, etc necessary to build software already installed.&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Change into your local source directory&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;cd /usr/local/src&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Download the source files for rrdtool and mysqlard&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;wget http://oss.oetiker.ch/rrdtool/pub/rrdtool-1.4.8.tar.gz&lt;br /&gt;
+wget http://gert.sos.be/downloads/mysqlar/mysqlard-1.0.0.tar.gz&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Unzip the files&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;tar -zxvf rrdtool-1.4.8.tar.gz&lt;br /&gt;
+tar -zxvf mysqlard-1.0.0.tar.gz&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Change into the rrd directory&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;cd rrdtool-1.4.8&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Install dependencies&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;apt-get install libpango1.0-dev libxml2-dev&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Build rrdtool (will install to the /opt/rrdtool-1.4.8 directory)&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;./configure &amp;amp;&amp;amp; make &amp;amp;&amp;amp; make install&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Change into mysqlard directory&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;cd ../mysqlard-1.0.0&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Build mysqlard (will install to /var/lib/mysqlard directory)&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;./configure –prefix=/usr –sysconfdir=/etc –datadir=/var/lib –with-rrd=/opt/rrdtool-1.4.8 &amp;amp;&amp;amp; make &amp;amp;&amp;amp; make install&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Move files to proper places&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;mv /var/lib/mysqlard/mysqlard.server /etc/init.d/&lt;br /&gt;
+mv /var/lib/mysqlard/mysqlard.cnf /etc/&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Change permissions&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;chmod +x /etc/init.d/mysqlard.server&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Create symlinks&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;ln -s /opt/rrdtool-1.4.8/lib/librrd.so.4 /usr/lib/librrd.so.4&lt;br /&gt;
+ln -s /opt/rrdtool-1.4.8/bin/rrdcgi /usr/bin/rrdcgi&lt;br /&gt;
+ln -s /opt/rrdtool-1.4.8/bin/rrdtool /usr/bin/rrdtool&lt;br /&gt;
+ln -s /opt/rrdtool-1.4.8/bin/rrdupdate /usr/bin/rrdupdate&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Create a MySQL user for application (replace your passwords where necessary)&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;mysql -u root -pYourDBPassword -e “CREATE USER ‘mysqlar’@’localhost’ IDENTIFIED BY ‘NewUserPassword’; GRANT USAGE ON * . * TO ‘mysqlar’@’localhost’ IDENTIFIED BY ‘NewUserPassword’ WITH MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0; FLUSH PRIVILEGES;”&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Edit /var/lib/mysqlard/mysqlar.php and set MySQL password&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;$sqlpassword = “YourNewPassword”;&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Edit /etc/init.d/mysqlard.server file. At the top, find this line: MYSQLUSER=${MYSQLUSER:=”mysqlar”} and add this line underneath it.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;MYSQLPASS=${MYSQLPASS:=”YourNewPassword”}&lt;br /&gt;
+At the bottom, inside the case 1 statement, underneath initrrd, add the following switches:&lt;/p&gt;
+
+&lt;p&gt;Find this line: ${MYSQLARD} –step=${step} –datadir=${datadir} $MYSQLHOST –pidfile=${pidfile} ${slaveopt}&lt;br /&gt;
+Edit line to this: ${MYSQLARD} –step=${step} –datadir=${datadir} –user=${MYSQLUSER} –password=${MYSQLPASS} $MYSQLHOST –pidfile=${pidfile} ${slaveopt}&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Add a cron job to collect RRD stats&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;crontab -e&lt;br /&gt;
+*/5 * * * * hourly=1 daily=1 weekly=1 monthly=1 /usr/bin/mysqlar_graph &amp;gt; /dev/null&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Start the service&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;service mysqlard.server start&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Add an alias to your Apache virtual hosts conf file. This will be different on every system so I can only point you in the right direction. Edit your virtual hosts file located in /etc/apache2/sites-available/xxxx.conf and add the following:&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Alias /sqlreport “/var/lib/mysqlard”&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;In a web browser, you should now be able to navigate to this URL:&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;http://hostname/sqlreport/mysqlar.php&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Start this service at boot time.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;update-rc.d mysqlard.server defaults&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Last but not least, we need to make sure MySQL starts before our service.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;mv /etc/rc2.d/S20mysqlard.server /etc/rc2.d/S99mysqlard.server&lt;br /&gt;
+mv /etc/rc3.d/S20mysqlard.server /etc/rc3.d/S99mysqlard.server&lt;br /&gt;
+mv /etc/rc4.d/S20mysqlard.server /etc/rc4.d/S99mysqlard.server&lt;br /&gt;
+mv /etc/rc5.d/S20mysqlard.server /etc/rc5.d/S99mysqlard.server&lt;/p&gt;
+
+&lt;p&gt;原文地址:  http://www.paperstreetonline.com/?p=308&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>用SecureCRT来上传和下载数据</title>
+   <link href="http://localhost:18000/linux/2014/06/07/%E7%94%A8SecureCRT%E6%9D%A5%E4%B8%8A%E4%BC%A0%E5%92%8C%E4%B8%8B%E8%BD%BD%E6%95%B0%E6%8D%AE/"/>
+   <updated>2014-06-07T00:00:00+08:00</updated>
+   <id>http://localhost:18000/linux/2014/06/07/用SecureCRT来上传和下载数据</id>
+   <content type="html">&lt;p&gt;用SecureCRT来上传和下载数据&lt;/p&gt;
+
+&lt;p&gt;我使用的是SecureCRT5.5&lt;br /&gt;
+SecureCR下的文件传输协议有ASCII、Xmodem、Zmodem&lt;br /&gt;
+文件传输协议&lt;br /&gt;
+文件传输是数据交换的主要形式。在进行文件传输时，为使文件能被正确识别和传送，我们需要在两台计算机之间建立统一的传输协议。这个协议包括了文件的识别、传送的起止时间、错误的判断与纠正等内容。常见的传输协议有以下几种：&lt;/p&gt;
+
+&lt;p&gt;ASCII：这是最快的传输协议，但只能传送文本文件。&lt;/p&gt;
+
+&lt;p&gt;Xmodem：这种古老的传输协议速度较慢，但由于使用了CRC错误侦测方法，传输的准确率可高达99.6%。&lt;/p&gt;
+
+&lt;p&gt;Ymodem：这是Xmodem的改良版，使用了1024位区段传送，速度比Xmodem要快。&lt;/p&gt;
+
+&lt;p&gt;Zmodem：Zmodem采用了串流式（streaming）传输方式，传输速度较快，而且还具有自动改变区段大小和断点续传、快速错误侦测等功能。这是目前最流行的文件传输协议。&lt;/p&gt;
+
+&lt;p&gt;除以上几种外，还有Imodem、Jmodem、Bimodem、Kermit、Lynx等协议，由于没有多数厂商支持，这里就略去不讲。&lt;br /&gt;
+SecureCRT可以使用linux下的zmodem协议来快速的传送文件.&lt;/p&gt;
+
+&lt;p&gt;你只要设置一下上传和下载的默认目录就行&lt;br /&gt;
+options-&amp;gt;session options -&amp;gt;Terminal-&amp;gt;Xmodem/Zmodem 下&lt;br /&gt;
+在右栏directory设置上传和下载的目录&lt;/p&gt;
+
+&lt;p&gt;使用Zmodem从客户端上传文件到linux服务器&lt;br /&gt;
+1.在用SecureCRT登陆linux终端.&lt;br /&gt;
+2.选中你要放置上传文件的路径，在目录下然后输入rz命令,SecureCRT会弹出文件选择对话框，在查找范围中找到你要上传的文件，按Add按钮。然后OK就可以把文件上传到linux上了。&lt;br /&gt;
+或者在Transfer-&amp;gt;Zmodem Upoad list弹出文件选择对话框，选好文件后按Add按钮。然后OK窗口自动关闭。然后在linux下选中存放文件的目录，输入rz命令。liunx就把那个文件上传到这个目录下了。&lt;/p&gt;
+
+&lt;p&gt;使用Zmodem下载文件到客户端：&lt;br /&gt;
+sz filename&lt;br /&gt;
+zmodem接收可以自行启动.下载的文件存放在你设定的默认下载目录下.&lt;/p&gt;
+
+&lt;p&gt;又记：&lt;br /&gt;
+rz，sz是Linux/Unix同Windows进行ZModem文件传输的命令行工具windows端需要支持ZModem的telnet/ssh客户端，SecureCRT就可以用SecureCRT登陆到Unix/Linux主机（telnet或ssh均可）O 运行命令rz，即是接收文件，SecureCRT就会弹出文件选择对话框，选好文件之后关闭对话框，文件就会上传到当前目录 O 运行命令sz file1 file2就是发文件到windows上（保存的目录是可以配置） 比ftp命令方便多了，而且服务器不用再开FTP服务了&lt;/p&gt;
+
+&lt;p&gt;原文地址: http://www.cnblogs.com/harryguo/archive/2008/01/16/1041296.html&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>find_in_set_mysql_comma_seprated_search</title>
+   <link href="http://localhost:18000/mysql/2014/06/07/find_in_set_mysql_comma_seprated_search/"/>
+   <updated>2014-06-07T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/07/find_in_set_mysql_comma_seprated_search</id>
+   <content type="html">&lt;p&gt;find_in_set() – MySQL function – comma sperated search&lt;/p&gt;
+
+&lt;p&gt;Generally, We stores various values of choices in same a column of mysql database. For example we store user’s preferred categories in user table’s preferred_categories(varchar(250)) field(column). Value stored in this field may be like 1,2,5,6,1&lt;/p&gt;
+
+&lt;p&gt;1,18 or any of similar pattern. It would be difficult to get all user whose preferred category would be “1″. If you use like query “preferred_categories LIKE ’1%’” then it also get matched with 1 &amp;amp; 11.&lt;/p&gt;
+
+&lt;p&gt;There is one of the good functions from MySQL which help to solve this problem. FIND_IN_SET() function is use to match among comma separated values. Basically FIND_IN_SET() function is use with SET type of datatype but it’s compatible to use with any other datatype where values get stored as comma separated.&lt;/p&gt;
+
+&lt;p&gt;mysql string function is FIND_IN_SET and its returns the position of a string value if it is available (as a substring) within a string. String contain comma separated characters or values.&lt;/p&gt;
+
+&lt;p&gt;This function returns 0 when search string does not exist in the string.&lt;/p&gt;
+
+&lt;p&gt;SYNTAX:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;SELECT FIND_IN_SET('1',preferred_categories);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Above syntax, ‘1’ is the string/value used for find within preferred_categories.&lt;/p&gt;
+
+&lt;p&gt;So Where query would be similar to following:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;SELECT cat_name FROM category WHERE FIND_IN_SET('1',preferred_categories);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Above query will give you categories which are having preferred_categories 1 along with or without other categories.In table records might have comma-separated values like ’4,5,7,8′or ’1,11′ or ’1,4,8,11,′ anything. So above expression in WHERE will return value greater than “zero” (0) and that row will be returned in result.&lt;/p&gt;
+
+&lt;p&gt;Keep Querying :)&lt;/p&gt;
+
+&lt;p&gt;原文地址:  http://www.bytestechnolab.com/blog/2011/12/05/find_in_set-mysql-function-comma-sperated-search/&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>MySQL_partition分区</title>
+   <link href="http://localhost:18000/mysql/2014/06/07/MySQL_partition%E5%88%86%E5%8C%BA/"/>
+   <updated>2014-06-07T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/07/MySQL_partition分区</id>
+   <content type="html">&lt;p&gt;MySQL partition分区 (此文章较旧,仅作参考)
+ 分类： Mysql/postgreSQL2014-06-07 10:15:48
+注: 此文章内容较旧,新版本5.5 已支持直接使用时间类型作为分区字段,不需要转换为int类型.&lt;/p&gt;
+
+&lt;p&gt;一、分区的概念&lt;br /&gt;
+二、为什么使用分区？（优点）&lt;br /&gt;
+三、分区类型&lt;br /&gt;
+四、子分区&lt;br /&gt;
+五、对分区进行修改（增加、删除、分解、合并）&lt;br /&gt;
+六、不同引擎的分区特性&lt;br /&gt;
+七、分区的限制性&lt;/p&gt;
+
+&lt;p&gt;分区概念&lt;br /&gt;
+分区针对不同的数据库，具有不同的特性。在这里专门针对MySQL数据库而言。在MySQL数据库里，分区这个概念是从mysql 5.1才开始提供的。不过目前只有在mysql advanced版本里才提供。&lt;/p&gt;
+
+&lt;p&gt;分区是把数据库、或它的组成部分(比如表)分成几个小部分。而且专门介绍的都是’水平分区’，即对表的行进行划分。&lt;/p&gt;
+
+&lt;p&gt;分区的优点&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;可以提高数据库的性能；&lt;/li&gt;
+  &lt;li&gt;对大表(行较多)的维护更快、更容易，因为数据分布在不同的逻辑文件上；&lt;/li&gt;
+  &lt;li&gt;删除分区或它的数据是容易的，因为它不影响其他表。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;注意：pruning，即截断。意思是说当你查询时，只扫描所需要查询的分区。。其他部分不会扫描。。这就大大地提高了性能。&lt;/p&gt;
+
+&lt;p&gt;分区类型&lt;br /&gt;
+分区具有如下4种类型：&lt;br /&gt;
+Range分区：是对一个连续性的行值，按范围进行分区；比如：id小于100；id大于100小于200；&lt;br /&gt;
+List分区：跟range分区类似，不过它存放的是一个离散值的集合。&lt;br /&gt;
+Hash分区：对用户定义的表达式所返回的值来进行分区。可以写partitions (分区数目)，或直接使用分区语句,比如partition p0 values in…..。&lt;br /&gt;
+Key分区：与hash分区类似，只不过分区支持一列或多列，并且MySQL服务器自身提供hash函数。&lt;/p&gt;
+
+&lt;p&gt;具体描述：&lt;br /&gt;
+分区语法：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;create table t(id int,name varchar(20)) engine=myisam partition by range(id);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;按range范围进行分区：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;create table orders_range
+(
+id int auto_increment primary key,
+customer_surname varchar (30),
+store_id int,
+salesperson_id int,
+order_Date date,
+note varchar(500)
+)  engine=myisam 
+partition by range(id) 
+(
+partition p0 values less than(5),
+partition p1 values less than(10),
+partition p3 values less than(15)
+);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;其实上面的分区创建，我们可知道，它的表类型为myisam，而每个分区的引擎也是myisam，这个可以通过show create table tablename查看。当我们插入数据到表里时，如果要查看小于8的信息，它之后检索p0和p12个分区。这样就非常快速了。&lt;/p&gt;
+
+&lt;p&gt;按list进行分区：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;create table orders_list
+(
+id int auto_increment,
+customer_surname varchar(30),
+store_id int,
+salesperson_id int,
+order_Date date,
+note varchar(500),
+index idx(id)
+) engine=myisam  partition by list(store_id) 
+(
+partition p0 values in(1,3),
+partition p1 values in2,4,6),
+partition p3 values in(10)
+);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;list 分区只能把你插入的值放在某个已定的分区里，若没有那个值，，就显示不能插入。&lt;/p&gt;
+
+&lt;p&gt;按hash进行分区：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;create table orders_hash
+(
+id int auto_increment primary key,
+cutomer_surname varchar(30),
+store_id int,
+salesperon_id int,
+order_date date,
+note varcahr(500)
+) engine=myisam  partition by hash(id) partitions 4;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;如果分为4个分区，那当我插入数据时，哪些数据是放在哪些分区里呢？ 当我对某个id值进行检索时，它明确说放到哪个分区里？或者说是有什么内部机制？&lt;br /&gt;
+使用hash分区，最主要就是确保数据的分配，它是基于create table时提供的表达式。不必定义单独的分区，只要使用partitions关键字和所需要分多少个区的数字。语句如上所述。&lt;/p&gt;
+
+&lt;p&gt;按key进行分区：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;create table orders_key
+(
+id int auto_increment,
+customer_surname varchar(30),
+store_id int,
+alesperson_id int,
+order_Date date,
+note varcahr(500),
+index_idx(id)
+) engine=myisam  partition by key(order_date) partitions 4;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;这个分区类似于hash分区，除了MySQL服务器使用它本身的hash表达式，不像其他类型的分区，不必要求使用一个int或null的表达式。&lt;/p&gt;
+
+&lt;p&gt;按子分区进行分区：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;create table orders_range
+(
+id int auto_increment primary key,
+customer_surname varchar(30),
+store_id int,
+salesperson_id int,
+order_Date date,
+note varchar(500)
+) engine=myisam  partition by range(id) 
+subpartition by hash(store_id) subpartitions 2
+(
+partition p0 values less than(5),
+partition p1 values less than(10),
+partition p3 values less than(15)
+);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;当把数据插入到表中时，那什么数据是放在子分区里呢？&lt;/p&gt;
+
+&lt;p&gt;================================================&lt;br /&gt;
+MySQL partition分区II（ 续）&lt;br /&gt;
+获得分区信息&lt;br /&gt;
+MySQL可以通过如下方式来获取分区表的信息:&lt;br /&gt;
+Show create tabe table;      //表详细结构&lt;br /&gt;
+show table status;     //表的各种参数状态&lt;br /&gt;
+select * from information_schema.partitions；//通过数据字典来查看表的分区信息&lt;br /&gt;
+explain partitions select * from table;   // 通过此语句来显示扫描哪些分区，及他们是如何使用的.&lt;/p&gt;
+
+&lt;p&gt;对分区进行修改 (修改、合并、重定义分区)&lt;br /&gt;
+修改分区&lt;br /&gt;
+修改部分分区：&lt;br /&gt;
+由于我们平常使用的数据库大都是动态运行的，所以只对某个表分区进行修改就OK了。&lt;br /&gt;
+可以对range或list表分区进行add或drop，也可以对hash或key分区表进行合并或分解。这些动作都在alter table语句里进行。&lt;br /&gt;
+使用add partition 关键字来对已有分区表进行添加。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Alter table orders_range add partition ( Partition p5 values less than(maxvalue) );
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Reorganize partition关键字可以对表的部分分区或全部分区进行修改，并且不会丢失数据。
+Splitting即分解一个已有分区：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Alter table orders_range reorganize partition p0 into
+(
+    partition n0 values less than(5000),
+    partition n1 values less than(10000)
+);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Merge分区：像上面把p0分成n0和n1，现在在把2个合并为一个。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Alter table orders_range reorganize partition n0,n1 into
+(
+    Partition p0 values less than(10000)
+);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;修改所有的分区：在into关键字之前或之后都指定多个分区&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Alter table orders_range reorganize partition p0,p1,p2,p3,p4,p5 into
+(
+    Partition r0 values less than(25000),
+    Partition r1 values less than(50000),
+    Partition r2 values less than(maxvalue)
+);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Coalesce 合并分区：&lt;br /&gt;
+Merge分区的另一种方法就是alter table….coalesce partition语句，你不能对hash或key分区进行删除&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Alter table orders_key coalesce partition1;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Redefine重定义分区&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Alter table orders_range partition by hash(id) partitions 4;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;对分区进行删除 (删除、删除所有分区)&lt;br /&gt;
+Drop 分区：&lt;br /&gt;
+可以对range或list类型的分区通过drop partition 关键字进行删除&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Alter table orders_range drop partition p0;  
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;注意：
+1.对这个分区进行删除时，你会把这个分区的所有数据进行删除，与delete语句相等；&lt;br /&gt;
+2.在做alter table..drop partition时，必须有drop权限；&lt;br /&gt;
+3.运行这个删除命令，它不会返回删除了的行，可以通过select count()语句查看。&lt;br /&gt;
+如果想对多个分区进行删除，可以使用如下命令语句：Alter table orders_range drop partition p1,p2;&lt;/p&gt;
+
+&lt;p&gt;删除所有分区&lt;br /&gt;
+通过如下命令语句删除表中所有分区，最后是一个正规表.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Alter table orders_range remove partitioning;  
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;当进行分区操作，了解对性能所产生的影响是非常有帮助的：&lt;br /&gt;
+1.创建分区表比无分区的正规表要稍微慢些；&lt;br /&gt;
+2.通过alter table….drop partition语句进行删除比delete语句要快些；&lt;br /&gt;
+3.在range或list分区类型上添加分区(alter table…add partition语句)是相当快的，因为没有移动数据到新分区里。&lt;br /&gt;
+4.当在一个key或hash类型的分区上执行alter table….add partition语句，要依赖表中已有多少行记录，数据越多，它添加一个新分区的时间就越长。当创建一个表时，使用线性hash或线性key分区是相当快的。&lt;br /&gt;
+5.对成百上千的行记录，进行alter table …coalesce partition, alter table …reorganize partition, alter table…partition by操作命令时，是相当慢的。&lt;br /&gt;
+6.当使用add partition命令时，线性hash和线性key分区会使coalesce partition操作更快， alter table …remove partitioning比其他都要快，因为mysql没有要求哪个文件来替代行，即使是移动数据。&lt;/p&gt;
+
+&lt;p&gt;各种存储引擎的分区&lt;br /&gt;
+MySQL分区可以对所有MySQL支持的存储引擎进行分区，比如：myisam, innodb, archive, NDBcluster(只可以线性key),falcon， 不支持分区的引擎：merge, federated, csv, blackhole&lt;/p&gt;
+
+&lt;p&gt;注意：所有分区和子分区的表类型要一致； &lt;br /&gt;
+      索引维护要依赖表类型；&lt;br /&gt;
+      锁住某些行，也依赖于存储引擎；&lt;br /&gt;
+      分区也属于存储引擎的顶层，所以进行update和insert时，性能不会产生很大的影响。&lt;/p&gt;
+
+&lt;p&gt;各种存储引擎使用分区时的限制：&lt;br /&gt;
+MyISAM引擎：&lt;br /&gt;
+Myisam引擎允许在使用分区时，把表的不同部分存储在不同地方，包括索引目录和数据目录。&lt;br /&gt;
+下面是一个关于把数据分布到4个不同的物理磁盘上的myisam分区。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Create table orders_hash2
+(
+Id int auto_increment primary key, ……
+) engine=myisam
+
+Partition by hash(id)
+(
+Partition p0 index directory=’/data0/orders/idx’
+data directory=’ /data0/orders/data’,
+Partition p1 index directory=’/data1/orders/idx’
+data directory=’ /data1/orders/data’,
+Partition p2 index directory=’/data2/orders/idx’
+data directory=’ /data2/orders/data’,
+Partition p3 index directory=’/data3/orders/idx’
+data directory=’ /data3/orders/data’,
+);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;注意：上面的具体4个分布，在windows系统上目前还不支持。&lt;/p&gt;
+
+&lt;p&gt;InnoDB引擎：&lt;br /&gt;
+Innodb的分区管理与myisam引擎的管理是不同的。&lt;/p&gt;
+
+&lt;p&gt;分区的限制性&lt;br /&gt;
+下面讲到的是一些关于MySQL分区的限制性约束&lt;br /&gt;
+常见的限制：&lt;br /&gt;
+所有的分区必须使用同种引擎；&lt;br /&gt;
+批量装载很慢；&lt;br /&gt;
+每个表的最大分区数为1024；&lt;br /&gt;
+不支持三维数据类型(GIS);&lt;br /&gt;
+不能对临时表进行分区；&lt;br /&gt;
+不可能对日志表进行分区；&lt;/p&gt;
+
+&lt;p&gt;外键和索引方面：&lt;br /&gt;
+不支持外键；&lt;br /&gt;
+不支持全文表索引；&lt;br /&gt;
+不支持load cache和load index into cache；&lt;/p&gt;
+
+&lt;p&gt;子分区方面：&lt;br /&gt;
+只允许对range和list类型的分区再进行分区；&lt;br /&gt;
+子分区的类型只允许是hash或key.&lt;/p&gt;
+
+&lt;p&gt;分区表达式方面：&lt;br /&gt;
+Range，list, hash分区必须是int类型；&lt;br /&gt;
+Key分区不可以有text，blob类型；&lt;br /&gt;
+不允许使用UDF,存储函数，变量，操作符(|,,^,«,»,~)和一些内置的函数；&lt;br /&gt;
+在表创建之后sql mode不可以改变；&lt;br /&gt;
+在分区表达式中，不允许子查询；&lt;br /&gt;
+分区表达式中必须包括至少一个列的引用，唯一索引列也可以(包括主键)&lt;/p&gt;
+
+&lt;p&gt;===================================================&lt;br /&gt;
+Mysql分区表局限性总结&lt;/p&gt;
+
+&lt;p&gt;Mysql5.1已经发行很久了，本文根据官方文档的翻译和自己的一些测试，对Mysql分区表的局限性做了一些总结，因为个人能力以及测试环境的原因，有可能有错误的地方，还请大家看到能及时指出，当然有兴趣的朋友可以去官方网站查阅。&lt;/p&gt;
+
+&lt;p&gt;本文测试的版本&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; select version(); 
++------------+ 
+| version() | 
++------------+ 
+| 5.1.33-log | 
++------------+ 
+1 row in set (0.00 sec)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;一、关于Partitioning Keys, Primary Keys, and Unique Keys的限制&lt;/p&gt;
+
+&lt;p&gt;在5.1中分区表对唯一约束有明确的规定，每一个唯一约束必须包含在分区表的分区键（也包括主键约束）。&lt;br /&gt;
+这句话也许不好理解，我们做几个实验：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;CREATE TABLE t1 ( 
+    id INT NOT NULL, 
+    uid INT NOT NULL, 
+    PRIMARY KEY (id)
+) PARTITION BY RANGE (id) 
+(
+    PARTITION p0 VALUES LESS THAN(5) ENGINE = INNODB, 
+    PARTITION p1 VALUES LESS THAN(10) ENGINE = INNODB 
+);   
+
+CREATE TABLE t1 ( 
+    id INT NOT NULL, 
+    uid INT NOT NULL, 
+    PRIMARY KEY (id) 
+) PARTITION BY RANGE (id) (
+    PARTITION p0 VALUES LESS THAN(5) ENGINE = MyISAM DATA DIRECTORY='/tmp' INDEX DIRECTORY='/tmp', 
+    PARTITION p1 VALUES LESS THAN(10) ENGINE = MyISAM DATA DIRECTORY='/tmp' INDEX DIRECTORY='/tmp' 
+);   
+
+mysql&amp;gt; CREATE TABLE t1 
+-&amp;gt; ( id INT NOT NULL, 
+-&amp;gt; uid INT NOT NULL, 
+-&amp;gt; PRIMARY KEY (id), 
+-&amp;gt; UNIQUE KEY (uid) 
+-&amp;gt; ) 
+-&amp;gt; PARTITION BY RANGE (id) 
+-&amp;gt; (PARTITION p0 VALUES LESS THAN(5), 
+-&amp;gt; PARTITION p1 VALUES LESS THAN(10) 
+-&amp;gt; ); ERROR 1503 (HY000): A UNIQUE INDEX must include all columns in the table's partitioning function
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;二、关于存储引擎的限制&lt;br /&gt;
+2.1 MERGE引擎不支持分区，分区表也不支持merge。&lt;br /&gt;
+2.2 FEDERATED引擎不支持分区。这限制可能会在以后的版本去掉。&lt;br /&gt;
+2.3 CSV引擎不支持分区&lt;br /&gt;
+2.4 BLACKHOLE引擎不支持分区&lt;br /&gt;
+2.5 在NDBCLUSTER引擎上使用分区表，分区类型只能是KEY(or LINEAR KEY) 分区。&lt;br /&gt;
+2.6 当升级MYSQL的时候，如果你有使用了KEY分区的表（不管是什么引擎，NDBCLUSTER除外），那么你需要把这个表dumped在reloaded。&lt;br /&gt;
+2.7 分区表的所有分区或者子分区的存储引擎必须相同，这个限制也许会在以后的版本取消。&lt;br /&gt;
+不指定任何引擎（使用默认引擎）。&lt;br /&gt;
+所有分区或者子分区指定相同引擎。&lt;/p&gt;
+
+&lt;p&gt;三、关于函数的限制&lt;br /&gt;
+在mysql5.1中建立分区表的语句中，只能包含下列函数：&lt;br /&gt;
+ABS()&lt;br /&gt;
+CEILING() and FLOOR() （在使用这2个函数的建立分区表的前提是使用函数的分区键是INT类型），例如&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; CREATE TABLE t (c FLOAT) PARTITION BY LIST( FLOOR(c) )( 
+-&amp;gt; PARTITION p0 VALUES IN (1,3,5),
+-&amp;gt; PARTITION p1 VALUES IN (2,4,6) 
+-&amp;gt; );; ERROR 1491 (HY000): The PARTITION function returns the wrong type   
+mysql&amp;gt; CREATE TABLE t (c int) PARTITION BY LIST( FLOOR(c) )( 
+-&amp;gt; PARTITION p0 VALUES IN (1,3,5), 
+-&amp;gt; PARTITION p1 VALUES IN (2,4,6) 
+-&amp;gt; ); Query OK, 0 rows affected (0.01 sec)
+
+DAY()
+DAYOFMONTH()
+DAYOFWEEK()
+DAYOFYEAR()
+DATEDIFF()
+EXTRACT()
+HOUR()
+MICROSECOND()
+MINUTE()
+MOD()
+MONTH()
+QUARTER()
+SECOND()
+TIME_TO_SEC()
+TO_DAYS()
+WEEKDAY()
+YEAR()
+YEARWEEK()
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;四、其他限制&lt;/p&gt;
+
+&lt;p&gt;4.1 对象限制&lt;br /&gt;
+下面这些对象在不能出现在分区表达式&lt;br /&gt;
+Stored functions, stored procedures, UDFs, or plugins.&lt;br /&gt;
+Declared variables or user variables.&lt;/p&gt;
+
+&lt;p&gt;4.2 运算限制&lt;br /&gt;
+支持加减乘等运算出现在分区表达式，但是运算后的结果必须是一个INT或者NULL。 |, &amp;amp;, ^, «, », , ~ 等不允许出现在分区表达式。&lt;/p&gt;
+
+&lt;p&gt;4.3 sql_mode限制&lt;br /&gt;
+官方强烈建议你在创建分区表后，永远别改变mysql的sql_mode。因为在不同的模式下，某些函数或者运算返回的结果可能会不一样。&lt;/p&gt;
+
+&lt;p&gt;4.4 Performance considerations.(省略)&lt;/p&gt;
+
+&lt;p&gt;4.5 最多支持1024个分区，包括子分区。&lt;br /&gt;
+当你建立分区表包含很多分区但没有超过1024限制的时候，如果报错 Got error 24 from storage engine，那意味着你需要增大open_files_limit参数。&lt;/p&gt;
+
+&lt;p&gt;4.6 不支持外键。MYSQL中，INNODB引擎才支持外键。&lt;/p&gt;
+
+&lt;p&gt;4.7 不支持FULLTEXT indexes（全文索引），包括MYISAM引擎。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; CREATE TABLE articles ( 
+-&amp;gt; id INT UNSIGNED AUTO_INCREMENT NOT NULL PRIMARY KEY, 
+-&amp;gt; title VARCHAR(200), 
+-&amp;gt; body TEXT, 
+-&amp;gt; FULLTEXT (title,body) 
+-&amp;gt; ) -&amp;gt; PARTITION BY HASH(id) 
+-&amp;gt; PARTITIONS 4; ERROR 1214 (HY000): The used table type doesn't support FULLTEXT indexes
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;4.8 不支持spatial column types。&lt;br /&gt;
+4.9 临时表不能被分区。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; CREATE Temporary TABLE t1 
+-&amp;gt; ( id INT NOT NULL, 
+-&amp;gt; uid INT NOT NULL, 
+-&amp;gt; PRIMARY KEY (id) -&amp;gt; ) 
+-&amp;gt; PARTITION BY RANGE (id) 
+-&amp;gt; (PARTITION p0 VALUES LESS THAN(5) ENGINE = MyISAM, 
+-&amp;gt; PARTITION p1 VALUES LESS THAN(10) ENGINE = MyISAM 
+-&amp;gt; ); ERROR 1562 (HY000): Cannot create temporary table with partitions
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;4.10 log table不支持分区。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; alter table mysql.slow_log PARTITION BY KEY(start_time) PARTITIONS 2; 
+ERROR 1221 (HY000): Incorrect usage of PARTITION and log table
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;5.11 分区键必须是INT类型，或者通过表达式返回INT类型，可以为NULL。唯一的例外是当分区类型为KEY分区的时候，可以使用其他类型的列作为分区键（ BLOB or TEXT 列除外）。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; CREATE TABLE tkc (c1 CHAR) 
+-&amp;gt; PARTITION BY KEY(c1) 
+-&amp;gt; PARTITIONS 4; 
+Query OK, 0 rows affected (0.00 sec)   
+mysql&amp;gt; CREATE TABLE tkc2 (c1 CHAR) 
+-&amp;gt; PARTITION BY HASH(c1) 
+-&amp;gt; PARTITIONS 4; 
+ERROR 1491 (HY000): The PARTITION function returns the wrong type   
+mysql&amp;gt; CREATE TABLE tkc3 (c1 INT) 
+-&amp;gt; PARTITION BY HASH(c1) 
+-&amp;gt; PARTITIONS 4; 
+Query OK, 0 rows affected (0.00 sec)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;5.12 分区键不能是一个子查询。 A partitioning key may not be a subquery, even if that subquery resolves to an integer value or NULL&lt;/p&gt;
+
+&lt;p&gt;5.13 只有RANG和LIST分区能进行子分区。HASH和KEY分区不能进行子分区。&lt;/p&gt;
+
+&lt;p&gt;5.14 分区表不支持Key caches。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; SET GLOBAL keycache1.key_buffer_size=128*1024; 
+Query OK, 0 rows affected (0.00 sec) 
+mysql&amp;gt; CACHE INDEX login,user_msg,user_msg_p IN keycache1; 
++-----------------+--------------------+----------+---------------------------------------------------------------------+ 
+| Table | Op | Msg_type | Msg_text | 
++-----------------+--------------------+----------+---------------------------------------------------------------------+ 
+| test.login | assign_to_keycache | status | OK | 
+| test.user_msg | assign_to_keycache | status | OK | 
+| test.user_msg_p | assign_to_keycache | note | The storage engine for the table doesn't support assign_to_keycache | 
++-----------------+--------------------+----------+---------------------------------------------------------------------+ 
+3 rows in set (0.00 sec)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;5.15 分区表不支持INSERT DELAYED.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; insert DELAYED into user_msg_p values(18156629,0,0,0,0,0,0,0,0,0); 
+ERROR 1616 (HY000): DELAYED option not supported for table 'user_msg_p'
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;5.16 DATA DIRECTORY 和 INDEX DIRECTORY 参数在分区表将被忽略。&lt;br /&gt;
+这个限制应该不存在了：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mysql&amp;gt; CREATE TABLE t1 
+-&amp;gt; ( id INT NOT NULL, 
+-&amp;gt; uid INT NOT NULL, 
+-&amp;gt; PRIMARY KEY (id) 
+-&amp;gt; ) -&amp;gt; PARTITION BY RANGE (id) 
+-&amp;gt; (PARTITION p0 VALUES LESS THAN(5) ENGINE = MyISAM DATA DIRECTORY='/tmp' INDEX DIRECTORY='/tmp', 
+-&amp;gt; PARTITION p1 VALUES LESS THAN(10) ENGINE = MyISAM DATA DIRECTORY='/tmp' INDEX DIRECTORY='/tmp' -&amp;gt; ); 
+Query OK, 0 rows affected (0.01 sec)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;5.17 分区表不支持mysqlcheck和myisamchk
+在5.1.33版本中已经支持mysqlcheck和myisamchk&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;./mysqlcheck -u -p -r test user_msg_p; 
+test.user_msg_p OK   
+./myisamchk -i /u01/data/test/user_msg_p#P#p0.MYI 
+Checking MyISAM file: /u01/data/test/user_msg_p#P#p0.MYI Data records: 4423615 
+Deleted blocks: 0 - check file-size - check record delete-chain - check key delete-chain - check index reference - check data record references index: 1 Key: 1: Keyblocks used: 98% Packed: 0% Max levels: 4 Total: Keyblocks used: 98% Packed: 0%   User time 0.97, System time 0.02 Maximum resident set size 0, Integral resident set size 0 Non-physical pagefaults 324, Physical pagefaults 0, Swaps 0 Blocks in 0 out 0, Messages in 0 out 0, Signals 0 Voluntary context switches 1, Involuntary context switches 5
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;5.18 分区表的分区键创建索引，那么这个索引也将被分区。分区键没有全局索引一说。&lt;br /&gt;
+5.19 在分区表使用ALTER TABLE … ORDER BY，只能在每个分区内进行order by。&lt;/p&gt;
+
+&lt;p&gt;=================================================&lt;/p&gt;
+
+&lt;p&gt;MySQL 分区(Partition)脚本&lt;/p&gt;
+
+&lt;p&gt;MySQL 5.1 中新特性分区(partition) shell 脚本。注意 MySQL 只支持小于等于 1024 个分区。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/sh&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# Set these values&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;PART&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;0
+&lt;span class=&quot;nv&quot;&gt;ORI&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;5000
+&lt;span class=&quot;nv&quot;&gt;STEP&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;5000
+&lt;span class=&quot;nv&quot;&gt;MAX&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;3000000
+
+&lt;span class=&quot;k&quot;&gt;for &lt;/span&gt;NUM &lt;span class=&quot;k&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;seq &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; %f &lt;span class=&quot;nv&quot;&gt;$ORI&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$STEP&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$MAX&lt;/span&gt; | cut &lt;span class=&quot;nt&quot;&gt;-d&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-f1&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;do
+        &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; “PARTITION &lt;span class=&quot;nv&quot;&gt;$PART&lt;/span&gt; VALUES LESS THAN &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$NUM&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt;,” &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; /tmp/partition.sql
+        &lt;span class=&quot;nv&quot;&gt;part&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;expr &lt;span class=&quot;nv&quot;&gt;$PART&lt;/span&gt; + 1&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;done
+&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; “PARTITION &lt;span class=&quot;nv&quot;&gt;$PART&lt;/span&gt; VALUES LESS THAN MAXVALUE &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; /tmp/partition.sql
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;http://blog.csdn.net/binger819623/article/details/5280267&lt;/p&gt;
+
+&lt;p&gt;原文地址: http://qianxunniao.iteye.com/blog/1333066&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>MySQL_5.5_表分区功能增强</title>
+   <link href="http://localhost:18000/mysql/2014/06/07/MySQL_5.5_%E8%A1%A8%E5%88%86%E5%8C%BA%E5%8A%9F%E8%83%BD%E5%A2%9E%E5%BC%BA/"/>
+   <updated>2014-06-07T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/07/MySQL_5.5_表分区功能增强</id>
+   <content type="html">&lt;p&gt;MySQL 5.5 表分区功能增强&lt;/p&gt;
+
+&lt;p&gt;MySQL5.1 引入表分区功能，使得MySQL在处理大表的能力上得到增强。使用过表分区功能的朋友应该知道，MySQL5.1中使用表分区的时候，对字段是有要求的，那就是必须是整数型，或者可以将其他类型的字段通过函数转换成整数型才可以。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;/* with MySQL 5.1  ivan @ MySQL实验室(mysqlab.net/blog/) */
+CREATE TABLE mysqlab_net
+(
+  ivan DATE
+)
+PARTITION BY RANGE (TO_DAYS(ivan))
+(
+  PARTITION p01 VALUES LESS THAN (TO_DAYS(’2007-08-08′)),
+  PARTITION p02 VALUES LESS THAN (TO_DAYS(’2008-08-08′)),
+  PARTITION p03 VALUES LESS THAN (TO_DAYS(’2009-08-08′)),
+  PARTITION p04 VALUES LESS THAN (MAXVALUE));
+
+SHOW CREATE TABLE mysqlab_netG
+*************************** 1. row ***************************
+       TABLE: mysqlab_net
+CREATE TABLE: CREATE TABLE `mysqlab_net` (
+  `ivan` date DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+/*!50100 PARTITION BY RANGE (TO_DAYS(ivan))
+(PARTITION p01 VALUES LESS THAN (733261) ENGINE = InnoDB,
+ PARTITION p02 VALUES LESS THAN (733627) ENGINE = InnoDB,
+ PARTITION p03 VALUES LESS THAN (733992) ENGINE = InnoDB,
+ PARTITION p04 VALUES LESS THAN MAXVALUE ENGINE = InnoDB) */
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;怎么样？读取的时候谁知道那个数字是多少？(不过也可以通过自定义函数实现还原)&lt;br /&gt;
+MySQL5.5中加入了columns关键字，使得可读性好多了。看例子&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;/* with MySQL 5.5   ivan @ MySQL实验室(mysqlab.net/blog/) */
+CREATE TABLE `mysqlab.net`
+(
+  ivan DATE
+)
+PARTITION BY RANGE  COLUMNS(ivan)
+(
+  PARTITION p01 VALUES LESS THAN (’2007-08-08′),
+  PARTITION p02 VALUES LESS THAN (’2008-08-08′),
+  PARTITION p03 VALUES LESS THAN (’2009-08-08′),
+  PARTITION p04 VALUES LESS THAN (MAXVALUE);
+
+SHOW CREATE TABLE `mysqlab.net`G
+*************************** 1. row ***************************
+       TABLE: mysqlab.net
+CREATE TABLE: CREATE TABLE `mysqlab.net` (
+  `ivan` date DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+/*!50500 PARTITION BY RANGE  COLUMNS(ivan)
+(PARTITION p01 VALUES LESS THAN (’2007-08-08′) ENGINE = InnoDB,
+ PARTITION p02 VALUES LESS THAN (’2008-08-08′) ENGINE = InnoDB,
+ PARTITION p03 VALUES LESS THAN (’2009-08-08′) ENGINE = InnoDB,
+ PARTITION p04 VALUES LESS THAN (MAXVALUE) ENGINE = InnoDB) */
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;另外MySQL5.5表分区(partition) columns关键字还支持多字段，比如 partition by range columns(a,b);将支持清空指定的分区TRUNCATE PARTITION。MySQL5.5有望在明年(2010)夏季GA。另外MySQL5.5支持的半同步功能在高可用上的使用，让人非常期待！&lt;/p&gt;
+
+&lt;p&gt;Reference: MySQL 5.5 partitioning enhancements&lt;/p&gt;
+
+&lt;p&gt;Note：在使用表分区的时候，并不是分区越多越好，要根据情况而定，因为会出现意想不到的问题。&lt;/p&gt;
+
+&lt;p&gt;Related posts:&lt;/p&gt;
+
+&lt;p&gt;update更新数字主键的时候可能导致主从(master/slave)复制中断&lt;br /&gt;
+事务隔离级别导致锁级别的不同&lt;br /&gt;
+Innodb如何查看剩余表空间？&lt;br /&gt;
+MySQL库目录下db.opt文件的作用&lt;br /&gt;
+Vertical Partitioning for MySQL(MySQL垂直分区)&lt;br /&gt;
+[MySQL5.1] Master上批量将Myisam引擎转Innodb&lt;/p&gt;
+
+&lt;p&gt;原文地址:  http://www.mysqlab.net/blog/2009/12/mysql-55-%E8%A1%A8%E5%88%86%E5%8C%BA%E5%8A%9F%E8%83%BD%E5%A2%9E%E5%BC%BA/&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>How_to_optimize_MySQL_and_better_performance</title>
+   <link href="http://localhost:18000/mysql/2014/06/07/How_to_optimize_MySQL_and_better_performance/"/>
+   <updated>2014-06-07T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/07/How_to_optimize_MySQL_and_better_performance</id>
+   <content type="html">&lt;p&gt;How to optimize MySQL and better performance&lt;/p&gt;
+
+&lt;p&gt;As per past experience working with MySQL and PHP, I feel that after completing initial phase of any Product / Project, the main task is to tune performance. And when it comes to performance , the first thing comes to any developer is to see h&lt;/p&gt;
+
+&lt;p&gt;ow MySQL works and how he/she can tune it up to get desired outcome.&lt;/p&gt;
+
+&lt;p&gt;Based on past experience, I have gathered some basic tip on how we can tune up MySQL and What precaution are required to avoid any fall on performance when database grows exponantialy.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Don’t query columns you don’t need, avoid using SELECT * FROM&lt;br /&gt;
+Use numeric values (rather than alphabetical values) when performing a join&lt;br /&gt;
+Use caching to reduce database load&lt;br /&gt;
+Normalize tables to ensure data consistency&lt;br /&gt;
+Don’t use HAVING when you can use WHERE&lt;br /&gt;
+Use persistent connections&lt;br /&gt;
+Better to have 10 quick queries than 1 slow one&lt;br /&gt;
+Proper use of indexes improve performance&lt;br /&gt;
+MySQL can search on prefix of indexes (ie: If you have index INDEX (a,b), you don’t need an index on (a))&lt;br /&gt;
+Do not perform calculations on an index (eg: if you have an index for a column called salary, do not perform calculation such as amount * 2 &amp;gt; 10000)&lt;br /&gt;
+Use INSERT LOW PRIORITY or INSERT DELAYED if you want to delay inserts from happening until the table is free&lt;br /&gt;
+Use TRUNCATE TABLE rather than DELETE FROM if you are deleting an entire table (DELETE FROM delete row by row, whereas TRUNCATE TABLE deletes all at once)&lt;br /&gt;
+Always use EXPLAIN to examine if your select query is inefficient&lt;br /&gt;
+Use OPTIMIZE TABLE to reclaim unused space (Note: Table will be locked during optimisation, so only do it during low traffic time)&lt;br /&gt;
+“LOAD DATA INFILE” is the fastest way to insert data into MySQL database (20 times faster than normal inserts)&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Feel free to add more in comments if missed or any suggestion.&lt;/p&gt;
+
+&lt;p&gt;原文地址:  http://www.bytestechnolab.com/blog/2011/12/02/how-to-optimize-mysql-and-better-performance/&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>从源码的角度对比Postgres与MySQL</title>
+   <link href="http://localhost:18000/mysql/2014/06/04/%E4%BB%8E%E6%BA%90%E7%A0%81%E7%9A%84%E8%A7%92%E5%BA%A6%E5%AF%B9%E6%AF%94Postgres%E4%B8%8EMySQL/"/>
+   <updated>2014-06-04T00:00:00+08:00</updated>
+   <id>http://localhost:18000/mysql/2014/06/04/从源码的角度对比Postgres与MySQL</id>
+   <content type="html">&lt;p&gt;从源码的角度对比Postgres与MySQL&lt;/p&gt;
+
+&lt;p&gt;一直在从事postgres内核修改的工作，对postgres的代码还算比较熟悉，在工作讨论中，有意无意的大家都会提起，MySQL在这方面是怎么做的，最近读了以下网站：&lt;br /&gt;
+http://www.mysqlops.com&lt;/p&gt;
+
+&lt;p&gt;关于MySQL源码解读 的文章，感觉作者对MySQL也是相当熟悉，文章写的也很好，MySQL和PostgresQL在很多功能设计上有许多相似之处，又有些许不同，简单的总结以下，以下的谈论都是针对MySQL的InnoDB引擎的。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;数据文件存储&lt;br /&gt;
+1.1 Postgres 是一张表对应一个文件(或多个文件)，一个索引也是对应一个文件（或多个文件），Postgres在创建表时，会默认创建一个物理文件，文件大小默认为1G，随着表中数据的增长，会接着产生第二个，第三个默认大小为1G的数据文件，索引也是类似。&lt;br /&gt;
+1.2 MySQL InnoDB其实是所有的数据库中所有表都存在一个文件中(ibdata1 by default)，后来版本增加了参数 innodb_file_per_table，默认为disable，也可以每张表一个物理文件如mytable.ibd，这里和Postgres的区别是：MySQL会把表和表上的所有索引都存入该文件，而Postgres不会，表对应一个（多个）物理文件，表上的每个索引对应一个（多个）物理文件。&lt;br /&gt;
+1.3 那么MySQL为什么要增加这个特性呢，以前为什么又把所有的表存入一个文件呢？&lt;br /&gt;
+http://dba.stackexchange.com/questions/15531/why-does-innodb-store-all-databases-in-one-file&lt;br /&gt;
+从上述讨论中，未找到明确答案。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;日志&lt;br /&gt;
+http://www.mysqlops.com/2012/04/06/innodb-log1.html&lt;br /&gt;
+http://www.mysqlops.com/2012/04/06/innodb-log2.html&lt;br /&gt;
+http://www.mysqlops.com/2012/04/06/innodb-log3.html&lt;br /&gt;
+以上三篇文章把MySQL的日志记录方法说的非常清楚，循序渐进。&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;2.1 MySQL既存在Redo日志又存在Undo日志，日志记录的格式既有物理日志又有逻辑日志。而Postgres只存在Redo日志，并且日志记录的格式只有物理日志。&lt;br /&gt;
+2.2 对于日志的恢复策略是：不管事务是否提交，全部重做而非只做提交的事务。这一点Postgres和InnoDB相同。&lt;br /&gt;
+2.3 为了解决Page部分写到磁盘的问题(如page的头面刷盘，而尾部为刷盘的情况下掉电)，MySQL提供了Double Write的机制：&lt;br /&gt;
+Double Write的思路很简单:&lt;br /&gt;
+A. 在覆盖磁盘上的数据前，先将Page的内容写入到磁盘上的其他地方(InnoDB存储引擎中的doublewrite  buffer，这里的buffer不是内存空间，是持久存储上的空间).&lt;br /&gt;
+B. 然后再将Page的内容覆盖到磁盘上原来的数据。&lt;/p&gt;
+
+&lt;p&gt;Postgres也有类似的机制，通过full_page_write来控制，不同之处在于Postgres先将页面的内容写入Redo日志，而MySQL是写入double write buffer.&lt;/p&gt;
+
+&lt;p&gt;2.4 MySQL的数据页有checksum，而Postgres的数据页并没有checksum，只有索引页有。对于日志在内存中缓存结构，两者都采用了环形缓冲的形式。&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;Checkpoint&lt;br /&gt;
+http://www.mysqlops.com/2012/04/23/mysql-innodb-checkpoint.html&lt;br /&gt;
+在这一点上Postgres和MySQL差别很大。&lt;br /&gt;
+3.1 Postgres的Checkpoint会刷盘所有的脏页面，而MySQL的checkpoint并不会刷盘所有的脏页面，只是部分脏页面，很多情况下checkpoint时，并不写脏页到存储。只是将所有脏页的  最小的LSN记做checkpoint.在部分情况下，checkpoint会刷盘部分脏页面并向前推进checkpoint点。从这一点上来说，MySQL的checkpoint和PureScale的castout非常类似：刷盘部分页面，并向前推进checkpoint点。另外MySQL对于每次checkpoint刷新多少页面，也有一套计算方法。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Buffer pool&lt;br /&gt;
+http://www.mysqlops.com/2012/05/25/mysql_innodb_buffer_pool_size.html&lt;br /&gt;
+http://www.mysqlops.com/2012/05/29/mysql-innodb-buffer-pool.html&lt;br /&gt;
+http://www.mysqlops.com/2012/05/30/mysql-innodb-buffer-pool-allocate.html&lt;br /&gt;
+4.1 MySQL最新版本中，支持多个buffer pool Instance；而Postgres只有一个Buffer pool，IBM的Z/OS也有多个buffer pool，每个buffer pool中存放的页面类型不同。而MySQL的多个buffer pool是如何管理的，和单个相比有什么优势，目前没看清晰。&lt;br /&gt;
+4.2 MySQL有预读功能，Postgres没有；&lt;br /&gt;
+4.3 MySQL数据库InnoDB存储引擎的 Buffer Pool通过LRU算法管理页面的替换策略。LRU List按照功能被划分为两部分：LRU_young与LRU_old，默认情况下，LRU_old为链表长度的3/8。页面读取时(get/read ahead)，首先链入LRU_old的头部。页面第一次访问时(read/write)，从LRU_old链表移动到LRU_young的头部(整个LRU链表头)。而Postres采用的是Clock Sweep算法。MySQL虽然采用的LRU，但也不是每次新访问的页面都会移到list的头部，如果list很长，一个页面在list的第10位和头部的作用可以看做是相同的，即都不可能被淘汰。&lt;br /&gt;
+4.4 全表扫描对buffer命中率的影响&lt;br /&gt;
+全表扫描，在表比较大时，如果不采用特别的策略，大表的页面会使得buffer pool中的所有页面被换出，降低buffer pool的命中率。对于这个问题MySQL和Postgres都有处理:&lt;br /&gt;
+MySQL全表扫描的所有页面，也遵循先读入LRU_old，后移动到LRU_young的原则，会导致Buffer Pool中的其他页面被替换出内存。为防止全表扫描的负面影响，InnoDB存储引擎提供了系统参数，innodb_old_blocks_time：只有当页面的后续访问与第一次访问时间间隔大于此值，才会移动到LRU链表头。innodb_old_blocks_time在5.1.41版本中引入。默认为0，也就是说全表扫描的页面会进入LRU_young(链表头)，一个大表的全表扫描会导致大量page被替换出内存。&lt;br /&gt;
+Postgres使用了buffer ring。&lt;br /&gt;
+二者的思想都是，分配一部分buffer给类似全表扫描的场景使用，不让其污染整个buffer pool。&lt;br /&gt;
+4.5 在正常情况下，buffer中的脏页MySQL是通过checkpoint刷出的，而Postgres是通过称之为bgwriter的进程刷出的，工作进程大部分情况下并不会直接刷盘，但是在bgwriter忙不过来的时候，工作进程也会自己刷盘，对于MySQL也是类似，在checkpoint忙不过时，工作线程也会自己刷盘。&lt;br /&gt;
+4.6 MySQL具有AIO(异步)的功能，而Postgres没有。MySQL的异步IO有两种实现方式，一是使用linux自带的AIO功能，二是自己通过线程模拟的。&lt;br /&gt;
+http://www.mysqlops.com/2012/05/22/mysql-innodb-aio.html&lt;br /&gt;
+在Linux系统上，MySQL数据库InnoDB存储引擎除了可以使用Linux自带的libaio之外，其内部还实现了一种称之为Simulated aio功能，用以模拟系统AIO实现(其实，Simulated aio要早于linux native aio使用在innodb中，可参考网文[16])。前面的章节，已经分析了InnoDB存储引擎对于Linux原生AIO的使用，此处，再简单分析一下 Innodb simulated aio的实现方式。&lt;br /&gt;
+以下一段话摘自Transactions on InnoDB网站[16]，简单说明了simulated aio在innodb中的处理方式。&lt;br /&gt;
+… The query thread simply queues the request in an array and then returns to the normal working. One of the IO helper thread, which is a background thread, then takes the request from the queue and issues a synchronous IO call (pread/pwrite) meaning it blocks on the IO call. Once it returns from the pread/pwrite call, this helper thread then calls the IO completion routine on the block in question …&lt;br /&gt;
+Linux simulated aio，实现简单，基本采用的仍旧是同步IO的方式。相对于Linux native aio，simulated aio最大的问题在于：每个I/O请求，最终都会调用一次pread/pwrite进行处理(除非可以进行相邻page的合并)，而Linux native aio，对于一个array，进行一次异步I/O处理即可。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Insert buffer&lt;br /&gt;
+http://www.mysqlops.com/2012/05/21/mysql-innodb-insert-buffer.html&lt;br /&gt;
+http://blogs.innodb.com/wp/2010/09/mysql-5-5-innodb-change-buffering/&lt;br /&gt;
+MySQL的Insert buffer的思想就是，把一些对页面的修改先缓存在内存中，然后集中将修改与硬盘的原始数据Merge在一起。个人感觉这一点 和淘宝的OceanBase的思想比较相似，OceanBase把数据分为增量数据和基准数据，也就说应用对基准数据的修改，数据库层面并不会马上就修改基准数据，而是将修改数据汇总在一起成为增量数据，然后隔一段时间增量数据和基准数据进行merge，形成新的基准数据。这样可以把增量数据和基本数据分开对待，比如将增量数据放在SSD上。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Lock
+http://www.mysqlops.com/2012/05/19/locks_in_innodb.html&lt;br /&gt;
+6.1 这一块看到的资料比较少，感觉MySQL的锁机制貌似比Postgres复杂一点，但是它们都支持行级锁，但是现在不是特别清楚MySQL的行锁是如何存储的，是直接存在内存中，还是其它方案，下面这篇文章对比了DB2和Oracle的锁机制。&lt;br /&gt;
+http://www.ibm.com/developerworks/cn/data/library/techarticles/dm-0512niuxzh/?S_TACT=105AGX52&amp;amp;S_CMP=12-w-cto&lt;br /&gt;
+6.2 DB2的行级锁直接记录在内存中，因此如果事务比较大，修改行比较多，锁占用的内存比较大，此时就需要锁升级；而Oracle是通过在元组头上作标记来标识行级锁，因此行级锁并不占内存，Postgres行级锁的方案和Oracle类似。关于表级锁的模式，从上述文章感觉DB2和Postgres差不多，表上都有8种模式。&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;6.3 值得注意的是，DB2的行级锁模式比较多，有7中之多，并且当插入一行数据时，该行上并不是直接加X(排他锁)，而是加W(弱排他锁)。&lt;/p&gt;
+
+&lt;p&gt;6.4 Oracle存在一种单独的TX锁，许多对Oracle不太了解的技术人员可能会以为每一个TX锁代表一条被封锁的数据行，其实不然。TX的本义是Transaction（事务），当一个事务第一次执行数据更改（Insert、Update、Delete）或使用SELECT… FOR UPDATE语句进行查询时，它即获得一个TX（事务）锁，直至该事务结束（执行COMMIT或ROLLBACK操作）时，该锁才被释放。&lt;/p&gt;
+
+&lt;p&gt;在这一点上，Postgres和Oracle类似，也存储单独的事务锁，锁的标识为事务ID.&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Deadlock
+Postgres并没有一个单独的死锁检测进程，而是由各工作进程在申请锁超时时，自己检测。&lt;br /&gt;
+http://www.mysqlops.com/2011/12/05/innodb-dead-lock.html&lt;br /&gt;
+根据以上描述，MySQL也没有一个单独的死锁检测线程，而是依靠各工作线程，MySQL和Postgres都采用构造WFG的形式进行死锁检测，MySQL会计算事务重量，在回滚环中的事务时，会选择轻量的事务进行回滚，而Postgres检测到环之后，直接回滚检测者自己。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;原文地址: http://blog.sina.com.cn/s/blog_742eb90201010yul.html&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>右键菜单增加使用Notepad++编辑</title>
+   <link href="http://localhost:18000/windows/2014/05/31/%E5%8F%B3%E9%94%AE%E8%8F%9C%E5%8D%95%E5%A2%9E%E5%8A%A0%E4%BD%BF%E7%94%A8Notepad++%E7%BC%96%E8%BE%91/"/>
+   <updated>2014-05-31T00:00:00+08:00</updated>
+   <id>http://localhost:18000/windows/2014/05/31/右键菜单增加使用Notepad++编辑</id>
+   <content type="html">&lt;p&gt;右键菜单增加使用“Notepad++”编辑&lt;/p&gt;
+
+&lt;p&gt;安装完Notepad++后没有添加到右键菜单，很不方便，这时可以手动增加右键菜单。新建文件notepad++.reg，文件内容为：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;REGEDIT4
+[HKEY_CLASSES_ROOT\*\Shell\Edit with NotePad++]
+[HKEY_CLASSES_ROOT\*\Shell\Edit with NotePad++\Command]
+@=&quot;D:\\Program Files\\Notepad++\\Notepad++.exe \&quot;%1\&quot;&quot;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;双击添加到注册表即可。&lt;/p&gt;
+
+&lt;p&gt;默认的”记事本打开“丢失了也可以这样，使用文件notepad.reg：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;REGEDIT4
+[HKEY_CLASSES_ROOT\*\Shell\使用记事本打开]
+[HKEY_CLASSES_ROOT\*\Shell\使用记事本打开\Command]
+@=&quot;c:\\windows\\notepad.exe \&quot;%1\&quot;&quot;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;添加到注册表。&lt;/p&gt;
+
+&lt;p&gt;原文地址:  http://blog.sina.com.cn/s/blog_5f5a3dff0101gecu.html&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>CentOS_6.3_安装VMware_Tools</title>
+   <link href="http://localhost:18000/linux/2014/05/31/CentOS_6.3_%E5%AE%89%E8%A3%85VMware_Tools/"/>
+   <updated>2014-05-31T00:00:00+08:00</updated>
+   <id>http://localhost:18000/linux/2014/05/31/CentOS_6.3_安装VMware_Tools</id>
+   <content type="html">&lt;p&gt;CentOS 6.3 安装VMware Tools&lt;/p&gt;
+
+&lt;p&gt;1 在VMWare图形界面中，将CentOS光驱设定为C:\Program Files\VMware\VMware Workstation\linux.iso，根据你的VM安装目录进行设定；&lt;/p&gt;
+
+&lt;p&gt;2 然后，启动CentOS;&lt;/p&gt;
+
+&lt;p&gt;3 启动好后，挂载光驱&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mount -t auto /dev/cdrom /mnt/cdrom这命令就是把CentOS CDROM挂载在/mnt/cdrom目录中，就可以访问里面的内容了；
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;可能发生的问题：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;/mnt/cdrommount: mount point /mnt/cdrom does not exist --/mnt/cdrom目录不存在，需要先创建。
+
+[root@CentOS6 /]# cd /mnt
+[root@CentOS6 /]# mkdir -p /mnt/cdrom  --创建/mnt/cdrom目录
+[root@CentOS6 /]# mount -t auto /dev/cdrom /mnt/cdrom  --挂载CentOS CDROM挂载mount: block device /dev/cdrom is write-protected, mounting read-only --挂载成功。
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;4 使用光驱中的文件，进行安装&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[root@CentOS6 /]# cd /mnt/cdrom
+[root@CentOS6 /]# ls -a
+[root@CentOS6 /]# cp VMwareTools-8.6.1-19175.tar.gz /tmp
+[root@CentOS6 /]# cd /tmp
+[root@CentOS6 /]# tar zxpf VMwareTools-8.6.1-19175.tar.gz
+[root@CentOS6 /]# cd vmware-tools-distrib
+[root@CentOS6 vmware-tools-distrib]# ./vmware-install.pl
+Creating a new installer database using the tar3 format.
+
+Installing the content of the package. 
+
+# 安装过程的画面，全部使用默认值，一直按 Enter 就对了
+
+一直到出现：
+To use the vmxnet driver, restart networking using the following commands:
+/etc/init.d/network stop
+rmmod pcnet32
+rmmod vmxnet
+depmod -a
+modprobe vmxnet
+/etc/init.d/network start
+
+Enjoy,
+
+--the VMware team
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;出现以上，则基本安装完!&lt;/p&gt;
+
+&lt;p&gt;5 shutdown -r now 重启&lt;/p&gt;
+
+&lt;p&gt;6 重新启动计算机再次登入之后，我们就会发觉到，当我们要离开 Guest OS 的时候，不再需要按「Ctrl + Alt」了，&lt;/p&gt;
+
+&lt;p&gt;现在我们来分享 Host OS 的数据夹给 Guest OS 使用，〔VM〕→〔Settings〕&lt;br /&gt;
+注：左下角原本都会显示「You do not have VMware Tools installed」，现在我们装了 VMware Tools，就不再显示；&lt;/p&gt;
+
+&lt;p&gt;新增要分享的数据夹：〔Options〕→〔Shared Folders〕→〔Add〕〔下一步〕点选〔Browse〕，选取要分享的数据夹，这里是以 D盘为例，上面的「Name」您可以随意输入，这里是以 test 为例「Enable this share」启用这个分享&lt;/p&gt;
+
+&lt;p&gt;顺利的话，我们只要到「/mnt/hgfs」数据夹，就可以看到刚刚分享的数据夹了&lt;/p&gt;
+
+&lt;p&gt;相关参考：
+CentOS CDROM挂载使用mount命令
+http://os.51cto.com/art/201001/178745.htm&lt;/p&gt;
+
+&lt;p&gt;[ CentOS ] 安装VMware Tools
+http://xxjcom.blog.51cto.com/259691/48462&lt;/p&gt;
+
+&lt;p&gt;如何在CentOS安裝VMWare Tools? (OS) (Linux) (CentOS) (VMWare)
+http://www.cnblogs.com/oomusou/archive/2008/06/06/centos_vmware_tools.html&lt;/p&gt;
+
+&lt;p&gt;Linux 安装VMware Tools
+http://www.ilegal.cn/POST/33.html&lt;/p&gt;
+
+&lt;p&gt;原文地址:   http://blog.sina.com.cn/s/blog_5d71157b0101iv5n.html&lt;/p&gt;
+</content>
+ </entry>
+ 
+
+</feed>

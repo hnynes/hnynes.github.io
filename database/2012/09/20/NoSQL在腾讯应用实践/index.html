@@ -1,0 +1,892 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>NoSQL在腾讯应用实践 | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="NoSQL在腾讯应用实践">
+    <meta property="og:url" content="/database/2012/09/20/NoSQL%E5%9C%A8%E8%85%BE%E8%AE%AF%E5%BA%94%E7%94%A8%E5%AE%9E%E8%B7%B5/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="NoSQL在腾讯应用实践">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/database/2012/09/20/NoSQL%E5%9C%A8%E8%85%BE%E8%AE%AF%E5%BA%94%E7%94%A8%E5%AE%9E%E8%B7%B5/" title="NoSQL在腾讯应用实践" itemprop="url">NoSQL在腾讯应用实践</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2012-09-20 00:00:00 +0800" itemprop="datePublished"> 发表于 2012-09-20</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>[转载文章]</p>
+
+<h1 id="nosql-在腾讯应用实践">NoSQL 在腾讯应用实践</h1>
+
+<p>吴悦，腾讯大讲堂特约讲师，腾讯T4技术专家。先后参与腾讯分布式文件系统（TFS），K-V存储，SQL集群，接入网关（TGW）的设计与研发。见证了腾讯NoSQL从07年诞生，08、09批量应用，10年至今应用于腾讯开放平台让更多的第三方开发者使用；关注于构建具有低成本、高性能、高可用，可扩展，易运营特点的互联网海量后台服务。目前任腾讯架构平台部平台开发中心技术总监。</p>
+
+<p>此文已发表在《程序员》杂志。</p>
+
+<h2 id="一前言">一、前言</h2>
+
+<p>NoSQL的历史很长，最早可以追朔到Berkeley DB等嵌入式数据库的年代。互联网行业的高速发展对大数据的需求，为NoSQL的发展起到了推波助澜的作用。互联网时代的NoSQL，源起于Google 为解决大数据的存储与计算而提出的GFS + Bigtable + Map Reduce。随后Hadoop(Hdfs+Hbase+MapReduce)、 Hypertable、Memcached，Tokyo cabinet，Redis， Dynamo，Cassandra等等NoSQL产品雨后春笋般的推出，使得NoSQL技术广泛应用于互联网各个领域。</p>
+
+<p>在腾讯过去的几年中，互联网社交平台取得令人瞩目的发展。包括平台用户基数、在线、应用数都取得突飞猛进的增长；另外随着开放的加剧，还有越来越多的第三方选择社交平台开发应用。这些外部条件的变化对技术平台的而言，也带来了新挑战：除需要为用户提供更强的海量服务外，同时还需要提供开放的软件基础架构来帮助第三方开发海量服务。</p>
+
+<p>在解决这些问题的实践中，总结了很多经验。其中关键一点则是通过NoSQL技术来构建海量服务的数据层，并通过分析和总结出不同的业务场景和技术特点，为各种场景提供更合适的数据层解决方案。具体而言：</p>
+
+<p>相册、日志等UGC类应用，主要是自我产生数据，他人以浏览为主，其技术特点是读取量巨大，修改量低于读取量一个量级，数据量从几百T至P级不等。提供SAS、SATA级的TDB、TFS解决方案。<br />
+农牧场等Social Game类应用，核心数据是用户背包数据，互动性很强，其技术特点是巨大读取量与修改量，数据量在百G级别。提供MEM级的TMEM解决方案。<br />
+信息中心的Feeds类应用，其技术特点是巨大的修改量与读取量，数据量也在几十T到几百T不等。提供SSD级的TSSD解决方案。</p>
+
+<h2 id="二20062008因qq相册而研发tfstdb">二、【2006~2008】因QQ相册而研发TFS、TDB</h2>
+
+<p>回顾NoSQL在腾讯的发展历程，需要从2006年腾讯分布式文件系统TFS的研发开始谈起，TFS目的是在公司内部构建统一的存储平台，为各个BU提供文件系统服务。第一期的重点是要能够支持到QQ相册的快速发展。当时QQ相册使用传统企业级存储硬件+标准Linux文件系统的老架构，在数百亿的图片数，每天近10亿长尾下载的规模下已难以为继。通过分析，老架构主要有下面三个问题：</p>
+
+<p>采用FC-SAN等高端企业级存储硬件，这些硬件主要是针对电信、银行等高ARPU值的行业客户而生，价格通常比较贵，对盛行免费的互联网企业来说，成本压力大。<br />
+使用通用的Linux文件系统，对相册海量小文件的场景，空间利用和IO性能都不能很好的满足要求。<br />
+元数据与对象数据耦合，扩展性和可维护性较差，单机故障以及扩容都是异常繁琐的运维操作。<br />
+TFS采用廉价的存储设备，在软件层面使用类似软raid的技术来满足系统基于不可靠硬件的可靠性要求。将对象数据与元数据分离：对象数据存储采用自研的CHUNK文件系统，inode节点更小，空间分配采用了基于append + delete更为紧凑的管理方式，使得单机最大可以支持数10亿的图片文件；元数据使用MYSQL存储。系统架构如下：</p>
+
+<p>上面的架构很好的满足了数百亿级别规模下的QQ相册业务发展。大致在2007年的时候，QQ相册采用TFS的新架构趋于稳定，同时业务发展需要，对用户上传也放开了限制，用户上传浏览的活跃度上升的一个新的量级，用户目录、文件索引等元数据规模突破千亿。在使用MySQL应对如此大规模的元数据的场景下，暴露出一些问题：</p>
+
+<p>索引低效：在QQ相册的场景，上千亿的记录，使用MySQL的B树索引索引的存储量消耗都在数TB到数十TB。 海量索引在无法全内存的情况会带来IO的多次访问，一方面增加了单次访问的时延，另一方面降低了磁盘的IO利用率。<br />
+数据搬迁：每天数亿的图片上传导致系统扩容，IDC分布策略，导致数据搬迁是常态。使用MySQL，使用select逐条记录方式搬迁，不同的记录分散在不同的磁盘偏移，一方面搬迁速度较慢，另一方面由迁移导致的磁盘随机IO与业务正常访问相互交织在一起，从而影响到在线业务访问。<br />
+系统控制：MySQL更多针对是各种数据通用场景所做的设计与开发，实现较复杂。在使用中遇到性能问题，异常故障时难以定位原因，对业务系统来说，已经是无法打破的天花板。<br />
+针对上面的问题结合业务需求，2007年底研发出TDB用以替代MySQL，TDB是一个典型的K-V存储系统。其特点是：接口简单，性能高效，具备优秀的扩展能力。</p>
+
+<p>数据层面，索引设计使用HASH，通过KEY可直接定位磁盘物理偏移，避免B树设计导致的二次定位磁盘性能开销，解决索引低效的问题。同时采用 16MB大磁盘块的设计，使得TDB的数据迁移速度可达网卡性能上限，解决迁移性能问题。另外系统可控性更强，一方面因为是专用场景，所以可以简化设计，方便定位问题与优化更新；另一方面打通了存储系统到磁盘IO的控制路径，避免MySQL的系统天花板。</p>
+
+<p>接入层面，为业务提供透明的访问代理，从而实现无缝的水平扩展。由于接口简单，并且是PAAS，业务使用非常方便，从2007年底开始，在Qzone、朋友、群空间等社区应用中逐步取得了广泛应用。</p>
+
+<h2 id="三2009social-game催生的tmem">三、【2009】Social Game催生的TMEM</h2>
+
+<p>2009年有一款叫农场的游戏大家应该不会陌生，农场的火爆带动了一批Social Game应用的兴起。其典型特点（1）好友间互动性很强，用户背包数据会被频繁的修改与读取；（2）交叉访问，无明显热点数据；举个例子来说，对于传统的应用来说，用户间交互相对较弱，活跃用户数据就是热点数据；而对于Social Game而言，用户交互性强，通过交叉访问，活跃用户也会频繁访问与修改非活跃用户数据。（3）放大效果明显；比如用户每次登陆，通常会遍历好友的农场，会遍历菜地偷菜，捉虫，一次偷菜、捉虫会导致多个用户的多个背包数据修改。这些行为一方面导致整个系统中无明显热点数据，用户传统的读缓存+写落地的方式则难以很好的满足这些业务的需求；另一方面庞大的用户基数之上的火爆应用，往往单款应用就会有每秒数百万次的访问量，这种海量访问不光对存储层面，同时对网络通讯层面提出更高的性能要求。</p>
+
+<p>针对以上新兴面临的问题，很明显TDB并不能很好的解决，所以09年围绕着网络通信，内存持久化两个方面，做了大量的设计与论证。2009年底左右推出新的服务TMEM。</p>
+
+<p>核心有两点：</p>
+
+<p>提供内核级KCCD网络通讯组件，提升网络通信性能，在网络包量吞吐方面相对于应用层提升了接近1倍的性能。<br />
+通过将操作流水加数据镜像落地TFS，解决了内存持久化的问题。<br />
+TMEM的出现很好的满足了业务海量访问的需求。不过毕竟内存介质的成本比较高，所以TMEM在小数据量的场景下，性价比比较高。但针对于中大数据规模的海量访问的场景，使用TMEM的成本偏高，而使用SAS介质的TDB，则IO性能又不能很好的满足。比如社区中各类应用产生的Feeds，数据量数十TB至数百TB，每天访问量数十亿至数百亿，应对该场景传统的做法必须得是前端内存缓存加上后端落地存储。分级存储导致的内存数据保护，各级间数据一致性，另外最为关键的一点，与Social Game类似，Feeds也是典型交叉访问，热点不是非常明显，等等这些都是数据层亟需解决的难题。</p>
+
+<h2 id="四2010顺ssd之势的tssd">四、【2010】顺SSD之势的TSSD</h2>
+
+<p>在2010年的时候，引入了SSD存储介质，开始构建TSSD K-V存储系统。SSD的特点：有着很好的随机读取性能，往往单盘可达数万IOPS，远高于SAS、SATA的数百随机IOPS。容量方面也接近SAS盘的容量，可达数百GB。但SSD也有弊端：（1）寿命有限，随机写入的寿命相对于顺序写入为1/10左右；（2）随机写入场景，性能易受干扰，毛刺率较高；具体而言：受限于物理机制，SSD的存储单元只能先擦除才能写入，并且擦除次数有限，针对NAND芯片，在3000~5000次左右。其中擦除单元是 512KB，写入单元是4KB。随机写入的场景，会带来写入放大。</p>
+
+<p>因此应用SSD存储介质，必须优化随机写入性能。TSSD通过构建地址映射，增加随机写入内存缓冲区，实现随机转顺序的写入；通过定期的垃圾回收机制，回收垃圾数据。</p>
+
+<p>TSSD系统中，单机可以支持容量数TB，性能随机数万次IOPS。这样基于TSSD使用简单的架构，更少的机器便可支持到容量数十至数百TB，性能数十万IOPS的Feeds类应用。</p>
+
+<h2 id="五nosql小结">五、NoSQL小结</h2>
+
+<p>至此，业已构建出基于内存、SSD、SAS、SATA各类存储介质的存储系统，在上面也已提到各类存储系统所对应的使用场景。实际应用中，各种业务场景千变万化，有没有统一的方法来判别和选择合适的存储系统呢？大致在1987年，Jim Gray发表了这个”五分钟法则”的观点，简而言之，如果一条记录频繁被访问，就应该放到内存里，否则的话就应该待在硬盘上按需要再访问。这个临界点就是五分钟。这个看似经验公式，隐含的是硬件性能和成本两个方面的因素。大约在1997年的时候，Jim Gray再次回顾了该法则，并引入了SSD，验证了该法则依然正确。这里不在赘述该法则。</p>
+
+<p>很多情况下需要一种直接根据业务的访问模型，因此使用IO访问密度，即每GB的存储的IO访问次数，会更为直观。那看看目前常用的几种存储介质：</p>
+
+<p>SATA：希捷2TB/7200转/SATA(ST32000644NS)</p>
+
+<p>SAS：希捷300GB/15000转/SAS(ST3300657SS)</p>
+
+<p>SSD：Intel 160GB X25-M G2 34nm</p>
+
+<p>DRAM：三星8GB DDR3 1333 REG ECC</p>
+
+<p>(中关村在线报价，人民币美元汇率：6.3157，2012/4/16)</p>
+
+<p>根据业务IO访问密度，选择合适的存储介质，就是根据存储介质的IO访问密度特性与价格来选择性价比最高的存储介质，即找到每种存储介质之间IO访问密度的临界点。</p>
+
+<p>临界点G（X,Y）.IO per sec per GB = X.IO per sec per GB * Y.price per GB / X. price per GB，X与Y分别表示对比的两种存储介质，且Y.IO per sec per GB 大于 X.IO per sec per GB。根据上面的公式，可以得到表格如下：</p>
+
+<p>怎么理解上面的公式呢?举计算SATA与SAS之间的临界点为例，G(SATA,SAS).IO per sec per GB = SATA.IO per sec per GB* SAS.price per GB/SATA.price per GB = 1/20 * 0.71/0.23 = 0.15 per sec per GB。假设现在有1GB的数据，访问密度是X，X小于2/3，那么使用SAS介质则需要0.71$，如果选择SATA介质，则需要X/(1/20) * 0.23 $。当X为0.15时，选择SATA与SAS的成本是一样的，当大于0.15时，则使用SATA的成本相对于SAS则高；否则则低。SAS比 SSD，SSD比DRAM也是类似。</p>
+
+<p>实际上对于一款存储介质而言，IO访问特性与单位每GB的成本是决定了其存在与生命力的关键因素。通常来讲，其IO访问特性一般来讲不会有革命性的变化，而单位每GB的成本却是可以控制的，所以厂商总是会围绕容量来不断的深入优化。</p>
+
+<h2 id="六开放的挑战">六、开放的挑战</h2>
+
+<p>2010年底开始，随着开放的加剧，越来越多的第三方选择社交平台开发应用。这些外部条件的变化对技术平台的而言，也带来了新挑战：除需要为用户提供更强的海量服务外，同时还需要提供开放的软件基础架构来帮助第三方开发海量服务。现有已成熟的NoSQL的架构能否被外部第三方接受，其关键的一点是接口的友好性和兼容性。采用的标准化的接口，会大大降低外部开发者的使用门槛。因此，在2011年推出了CMEM 的NoSQL云存储服务，开发者可直接使用memcached接口，并即将支持redis接口。同时也提供了SQL云存储服务，开发者可用MySQL客户端直接访问。后续推出CFS文件系统云存储服务，开发者可使用posix接口访问到TFS。</p>
+
+<p>回顾TFS、TDB、TMEM、TSSD、CMEM、CDB、CFS等一系列存储系统过去近6个年头的演进发展。有两点经验可供分享：</p>
+
+<p>1、建议NoSQL开发者尽量选择构建PAAS服务。一方面对业务开发者而言，不需关心日常运维，使用更为方便，易于接受；另一方面更容易形成用户需求提出、实现与发布的闭环，从而方便小步快跑，快速迭代出完善的服务。</p>
+
+<p>2、建议中小业务开发者尽量使用云服务。通常一个NoSQL服务所面临的挑战有两个方面：一方面是大家所直观感受的产品本身；另一方面是服务背后的运营体系。类似与铁路系统、消防系统，用户所直观感受到的火车、铁路，消防栓、消防车只是整个服务其中一个部分，是冰山海平面之上的部分；用户所感受不到的铁路规划、调度系统、消防规划、消防演练，报警系统等后台运营体系通常是冰山海平面以下的部分，往往需要有大量的人力和财力投入，可能是中小公司难以投入的。而在没有稳固的后台运营体系支撑下，类似动车事故、火灾等生产系统故障难以避免，并最终为业务带来不可估量的损失。</p>
+
+<p>从过去几年来看，硬件在变，存储介质的性能与容量在不断提升，并不断会有新存储介质的产生；业务在变，不断有新兴的产品和新的业务体验，并对后台系统提出新的挑战和需求；唯一不变的就是需要拥抱变化，为业务提供更贴切与更优化的存储服务。想了解更多关于腾讯TFS、TDB、TMEM、TSSD、 CMEM、CDB、CFS等一系列存储系统过去近6个年头的演进发展，大家可以到腾讯大讲堂网站(djt.qq.com)翻阅架构平台部的分享文章，谢谢。</p>
+
+<p>原文地址: http://kb.cnblogs.com/page/142715/</p>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#database">database</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#database">database</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/database/2012/09/20/NoSQL%E5%9C%A8%E8%85%BE%E8%AE%AF%E5%BA%94%E7%94%A8%E5%AE%9E%E8%B7%B5/" data-title="NoSQL在腾讯应用实践 | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/mssql/2012/09/07/%E5%9C%A8SQL-Server-2005%E4%B8%AD%E5%AE%9E%E7%8E%B0%E8%A1%A8%E7%9A%84%E8%A1%8C%E5%88%97%E8%BD%AC%E6%8D%A2/" title="在SQLServer2005中实现表的行列转换">
+  <strong>上一篇：</strong><br/>
+  <span>
+  在SQLServer2005中实现表的行列转换</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/mssql/2012/09/20/SQLServer%E7%B4%A2%E5%BC%95%E4%BD%BF%E7%94%A8%E5%92%8C%E4%BC%98%E5%8C%96/"  title="SQLServer索引使用和优化">
+ <strong>下一篇：</strong><br/> 
+ <span>SQLServer索引使用和优化
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

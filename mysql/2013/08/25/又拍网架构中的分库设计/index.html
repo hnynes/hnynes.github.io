@@ -1,0 +1,980 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>又拍网架构中的分库设计 | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="又拍网架构中的分库设计">
+    <meta property="og:url" content="/mysql/2013/08/25/%E5%8F%88%E6%8B%8D%E7%BD%91%E6%9E%B6%E6%9E%84%E4%B8%AD%E7%9A%84%E5%88%86%E5%BA%93%E8%AE%BE%E8%AE%A1/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="又拍网架构中的分库设计">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/mysql/2013/08/25/%E5%8F%88%E6%8B%8D%E7%BD%91%E6%9E%B6%E6%9E%84%E4%B8%AD%E7%9A%84%E5%88%86%E5%BA%93%E8%AE%BE%E8%AE%A1/" title="又拍网架构中的分库设计" itemprop="url">又拍网架构中的分库设计</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2013-08-25 00:00:00 +0800" itemprop="datePublished"> 发表于 2013-08-25</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>又拍网架构中的分库设计</p>
+
+<p>又拍网是一个照片分享社区，从2005年6月至今积累了260万用户，1.1亿张照片，目前的日访问量为200多万。5年的发展历程里经历过许多起伏，也积累了一些经验，在这篇文章里，我要介绍一些我们在技术上的积累。</p>
+
+<p>又拍网和大多数Web2.0站点一样，构建于大量开源软件之上，包括MySQL、PHP、nginx、Python、memcached、redis、Solr、Hadoop和RabbitMQ等等。又拍网的服务器端开发语言主要是PHP和Python，其中PHP用于编写Web逻辑（通过HTTP和用户直接打交道）， 而Python则主要用于开发内部服务和后台任务。在客户端则使用了大量的Javascript， 这里要感谢一下MooTools这个JS框架，它使得我们很享受前端开发过程。 另外，我们把图片处理过程从PHP进程里独立出来变成一个服务。这个服务基于nginx，但是是作为nginx的一个模块而开放REST API。</p>
+
+<p><img src="/assets/img/2013-08-25-p1.png" alt="" /></p>
+
+<p>图1：开发语言</p>
+
+<p>由于PHP的单线程模型，我们把耗时较久的运算和I/O操作从HTTP请求周期中分离出来， 交给由Python实现的任务进程来完成，以保证请求响应速度。这些任务主要包括：邮件发送、数据索引、数据聚合和好友动态推送（稍候会有介绍）等等。通常这些任务由用户触发，并且，用户的一个行为可能会触发多种任务的执行。 比如，用户上传了一张新的照片，我们需要更新索引，也需要向他的朋友推送一条新的动态。PHP通过消息队列（我们用的是RabbitMQ）来触发任务执行。</p>
+
+<p><img src="/assets/img/2013-08-25-p2.png" alt="" /></p>
+
+<p>图2：PHP和Python的协作</p>
+
+<p>数据库一向是网站架构中最具挑战性的，瓶颈通常出现在这里。又拍网的照片数据量很大，数据库也几度出现严重的压力问题。 因此，这里我主要介绍一下又拍网在分库设计这方面的一些尝试。</p>
+
+<p>分库设计<br />
+和很多使用MySQL的2.0站点一样，又拍网的MySQL集群经历了从最初的一个主库一个从库、到一个主库多个从库、 然后到多个主库多个从库的一个发展过程。</p>
+
+<p><img src="/assets/img/2013-08-25-p3.png" alt="" /></p>
+
+<p>图3：数据库的进化过程</p>
+
+<p>最初是由一台主库和一台从库组成，当时从库只用作备份和容灾，当主库出现故障时，从库就手动变成主库，一般情况下，从库不作读写操作（同步除外）。随着压力的增加，我们加上了memcached，当时只用其缓存单行数据。 但是，单行数据的缓存并不能很好地解决压力问题，因为单行数据的查询通常很快。所以我们把一些实时性要求不高的Query放到从库去执行。后面又通过添加多个从库来分流查询压力，不过随着数据量的增加，主库的写压力也越来越大。</p>
+
+<p>在参考了一些相关产品和其它网站的做法后，我们决定进行数据库拆分。也就是将数据存放到不同的数据库服务器中，一般可以按两个纬度来拆分数据:</p>
+
+<p>垂直拆分：是指按功能模块拆分，比如可以将群组相关表和照片相关表存放在不同的数据库中，这种方式多个数据库之间的表结构不同。</p>
+
+<p>水平拆分：而水平拆分是将同一个表的数据进行分块保存到不同的数据库中，这些数据库中的表结构完全相同。</p>
+
+<p>拆分方式
+一般都会先进行垂直拆分，因为这种方式拆分方式实现起来比较简单，根据表名访问不同的数据库就可以了。但是垂直拆分方式并不能彻底解决所有压力问题，另外，也要看应用类型是否合适这种拆分方式。如果合适的话，也能很好的起到分散数据库压力的作用。比如对于豆瓣我觉得比较适合采用垂直拆分， 因为豆瓣的各核心业务/模块（书籍、电影、音乐）相对独立，数据的增加速度也比较平稳。不同的是，又拍网的核心业务对象是用户上传的照片，而照片数据的增加速度随着用户量的增加越来越快。压力基本上都在照片表上，显然垂直拆分并不能从根本上解决我们的问题，所以，我们采用水平拆分的方式。</p>
+
+<p>拆分规则
+水平拆分实现起来相对复杂，我们要先确定一个拆分规则，也就是按什么条件将数据进行切分。 一般2.0网站都以用户为中心，数据基本都跟随用户，比如用户的照片、朋友和评论等等。因此一个比较自然的选择是根据用户来切分。每个用户都对应一个数据库，访问某个用户的数据时， 我们要先确定他/她所对应的数据库，然后连接到该数据库进行实际的数据读写。</p>
+
+<p>那么，怎么样对应用户和数据库呢？我们有这些选择：</p>
+
+<p>按算法对应</p>
+
+<p>最简单的算法是按用户ID的奇偶性来对应，将奇数ID的用户对应到数据库A，而偶数ID的用户则对应到数据库B。这个方法的最大问题是，只能分成两个库。另一个算法是按用户ID所在区间对应，比如ID在0-10000之间的用户对应到数据库A， ID在10000-20000这个范围的对应到数据库B，以此类推。按算法分实现起来比较方便，也比较高效，但是不能满足后续的伸缩性要求，如果需要增加数据库节点，必需调整算法或移动很大的数据集， 比较难做到在不停止服务的前提下进行扩充数据库节点。</p>
+
+<p>按索引/映射表对应</p>
+
+<p>这种方法是指建立一个索引表，保存每个用户的ID和数据库ID的对应关系，每次读写用户数据时先从这个表获取对应数据库。新用户注册后，在所有可用的数据库中随机挑选一个为其建立索引。这种方法比较灵活，有很好的伸缩性。一个缺点是增加了一次数据库访问，所以性能上没有按算法对应好。</p>
+
+<p>比较之后，我们采用的是索引表的方式，我们愿意为其灵活性损失一些性能，更何况我们还有memcached， 因为索引数据基本不会改变的缘故，缓存命中率非常高。所以能很大程度上减少了性能损失。</p>
+
+<p><img src="/assets/img/2013-08-25-p4.png" alt="" /></p>
+
+<p>图4：数据访问过程</p>
+
+<p>索引表的方式能够比较方便地添加数据库节点，在增加节点时，只要将其添加到可用数据库列表里即可。 当然如果需要平衡各个节点的压力的话，还是需要进行数据的迁移，但是这个时候的迁移是少量的，可以逐步进行。要迁移用户A的数据，首先要将其状态置为迁移数据中，这个状态的用户不能进行写操作，并在页面上进行提示。 然后将用户A的数据全部复制到新增加的节点上后，更新映射表，然后将用户A的状态置为正常，最后将原来对应的数据库上的数据删除。这个过程通常会在临晨进行，所以，所以很少会有用户碰到迁移数据中的情况。</p>
+
+<p>当然，有些数据是不属于某个用户的，比如系统消息、配置等等，我们把这些数据保存在一个全局库中。</p>
+
+<p>问题
+分库会给你在应用的开发和部署上都带来很多麻烦。</p>
+
+<p>不能执行跨库的关联查询</p>
+
+<p>如果我们需要查询的数据分布于不同的数据库，我们没办法通过JOIN的方式查询获得。比如要获得好友的最新照片，你不能保证所有好友的数据都在同一个数据库里。一个解决办法是通过多次查询，再进行聚合的方式。我们需要尽量避免类似的需求。有些需求可以通过保存多份数据来解决，比如User-A和User-B的数据库分别是DB-1和DB-2， 当User-A评论了User-B的照片时，我们会同时在DB-1和DB-2中保存这条评论信息，我们首先在DB-2中的photo_comments表中插入一条新的记录，然后在DB-1中的user_comments表中插入一条新的记录。这两个表的结构如下图所示。这样我们可以通过查询photo_comments表得到User-B的某张照片的所有评论， 也可以通过查询user_comments表获得User-A的所有评论。另外可以考虑使用全文检索工具来解决某些需求， 我们使用Solr来提供全站标签检索和照片搜索服务。</p>
+
+<p>图5：评论表结构</p>
+
+<p>不能保证数据的一致/完整性</p>
+
+<p>跨库的数据没有外键约束，也没有事务保证。比如上面的评论照片的例子， 很可能出现成功插入photo_comments表，但是插入user_comments表时却出错了。一个办法是在两个库上都开启事务，然后先插入photo_comments，再插入user_comments， 然后提交两个事务。这个办法也不能完全保证这个操作的原子性。</p>
+
+<p>所有查询必须提供数据库线索</p>
+
+<p>比如要查看一张照片，仅凭一个照片ID是不够的，还必须提供上传这张照片的用户的ID（也就是数据库线索），才能找到它实际的存放位置。因此，我们必须重新设计很多URL地址，而有些老的地址我们又必须保证其仍然有效。我们把照片地址改成/photos/{username}/{photo_id}/的形式，然后对于系统升级前上传的照片ID， 我们又增加一张映射表，保存photo_id和user_id的对应关系。当访问老的照片地址时，我们通过查询这张表获得用户信息, 然后再重定向到新的地址。</p>
+
+<p>自增ID</p>
+
+<p>如果要在节点数据库上使用自增字段，那么我们就不能保证全局唯一。这倒不是很严重的问题，但是当节点之间的数据发生关系时，就会使得问题变得比较麻烦。我们可以再来看看上面提到的评论的例子。如果photo_comments表中的comment_id的自增字段，当我们在DB-2.photo_comments表插入新的评论时， 得到一个新的comment_id，假如值为101，而User-A的ID为1，那么我们还需要在DB-1.user_comments表中插入(1, 101 …)。 User-A是个很活跃的用户，他又评论了User-C的照片，而User-C的数据库是DB-3。 很巧的是这条新评论的ID也是101，这种情况很用可能发生。那么我们又在DB-1.user_comments表中插入一行像这样(1, 101 …)的数据。 那么我们要怎么设置user_comments表的主键呢（标识一行数据）？可以不设啊，不幸的是有的时候（框架、缓存等原因）必需设置。那么可以以user_id、 comment_id和photo_id为组合主键，但是photo_id也有可能一样（的确很巧）。看来只能再加上photo_owner_id了， 但是这个结果又让我们实在有点无法接受，太复杂的组合键在写入时会带来一定的性能影响，这样的自然键看起来也很不自然。所以，我们放弃了在节点上使用自增字段，想办法让这些ID变成全局唯一。为此增加了一个专门用来生成ID的数据库，这个库中的表结构都很简单，只有一个自增字段id。 当我们要插入新的评论时，我们先在ID库的photo_comments表里插入一条空的记录，以获得一个唯一的评论ID。 当然这些逻辑都已经封装在我们的框架里了，对于开发人员是透明的。 为什么不用其它方案呢，比如一些支持incr操作的Key-Value数据库。我们还是比较放心把数据放在MySQL里。 另外，我们会定期清理ID库的数据，以保证获取新ID的效率。</p>
+
+<p>实现
+我们称前面提到的一个数据库节点为Shard，一个Shard由两个台物理服务器组成， 我们称它们为Node-A和Node-B，Node-A和Node-B之间是配置成Master-Master相互复制的。 虽然是Master-Master的部署方式，但是同一时间我们还是只使用其中一个，原因是复制的延迟问题， 当然在Web应用里，我们可以在用户会话里放置一个A或B来保证同一用户一次会话里只访问一个数据库， 这样可以避免一些延迟问题。但是我们的Python任务是没有任何状态的，不能保证和PHP应用读写相同的数据库。那么为什么不配置成Master-Slave呢？我们觉得只用一台太浪费了，所以我们在每台服务器上都创建多个逻辑数据库。 如下图所示，在Node-A和Node-B上我们都建立了shard_001和shard_002两个逻辑数据库， Node-A上的shard_001和Node-B上的shard_001组成一个Shard，而同一时间只有一个逻辑数据库处于Active状态。 这个时候如果需要访问Shard-001的数据时，我们连接的是Node-A上的shard_001， 而访问Shard-002的数据则是连接Node-B上的shard_002。以这种交叉的方式将压力分散到每台物理服务器上。 以Master-Master方式部署的另一个好处是，我们可以不停止服务的情况下进行表结构升级， 升级前先停止复制，升级Inactive的库，然后升级应用，再将已经升级好的数据库切换成Active状态， 原来的Active数据库切换成Inactive状态，然后升级它的表结构，最后恢复复制。 当然这个步骤不一定适合所有升级过程，如果表结构的更改会导致数据复制失败，那么还是需要停止服务再升级的。</p>
+
+<p><img src="/assets/img/2013-08-25-p6.png" alt="" /></p>
+
+<p>图6：数据库布局</p>
+
+<p>前面提到过添加服务器时，为了保证负载的平衡，我们需要迁移一部分数据到新的服务器上。为了避免短期内迁移的必要，我们在实际部署的时候，每台机器上部署了8个逻辑数据库， 添加服务器后，我们只要将这些逻辑数据库迁移到新服务器就可以了。最好是每次添加一倍的服务器， 然后将每台的1/2逻辑数据迁移到一台新服务器上，这样能很好的平衡负载。当然，最后到了每台上只有一个逻辑库时，迁移就无法避免了，不过那应该是比较久远的事情了。</p>
+
+<p>我们把分库逻辑都封装在我们的PHP框架里了，开发人员基本上不需要被这些繁琐的事情困扰。下面是使用我们的框架进行照片数据的读写的一些例子:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;?php
+    $Photos = new ShardedDBTable('Photos', 'yp_photos', 'user_id', array(
+                'photo_id'    =&gt; array('type' =&gt; 'long', 'primary' =&gt; true, 'global_auto_increment' =&gt; true),
+                'user_id'     =&gt; array('type' =&gt; 'long'),
+                'title'       =&gt; array('type' =&gt; 'string'),
+                'posted_date' =&gt; array('type' =&gt; 'date'),
+            ));
+
+    $photo = $Photos-&gt;new_object(array('user_id' =&gt; 1, 'title' =&gt; 'Workforme'));
+    $photo-&gt;insert();
+
+    // 加载 ID 为 10001 的照片，注意第一个参数为用户 ID
+    $photo = $Photos-&gt;load(1, 10001);
+
+    // 更改照片属性 
+    $photo-&gt;title = 'Database Sharding';
+    $photo-&gt;update();
+
+    // 删除照片 
+    $photo-&gt;delete();
+
+    // 获取 ID 为 1 的用户在 2010-06-01 之后上传的照片 
+    $photos = $Photos-&gt;fetch(array('user_id' =&gt; 1, 'posted_date__gt' =&gt; '2010-06-01'));
+?&gt;
+</code></pre></div></div>
+
+<p>首先要定义一个ShardedDBTable对象，所有的API都是通过这个对象开放。第一个参数是对象类型名称， 如果这个名称已经存在，那么将返回之前定义的对象。你也可以通过get_table(‘Photos’)这个函数来获取之前定义的Table对象。 第二个参数是对应的数据库表名，而第三个参数是数据库线索字段，你会发现在后面的所有API中全部需要指定这个字段的值。 第四个参数是字段定义，其中photo_id字段的global_auto_increment属性被置为true，这就是前面所说的全局自增ID， 只要指定了这个属性，框架会处理好ID的事情。</p>
+
+<p>如果我们要访问全局库中的数据，我们需要定义一个DBTable对象。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;?php
+    $Users = new DBTable('Users', 'yp_users', array(
+                'user_id'  =&gt; array('type' =&gt; 'long', 'primary' =&gt; true, 'auto_increment' =&gt; true),
+                'username' =&gt; array('type' =&gt; 'string'),
+            ));
+?&gt;
+</code></pre></div></div>
+
+<p>DBTable是ShardedDBTable的父类，除了定义时参数有些不同（DBTable不需要指定数据库线索字段），它们提供一样的API。</p>
+
+<p>缓存
+我们的框架提供了缓存功能，对开发人员是透明的。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;?php
+    $photo = $Photos-&gt;load(1, 10001);
+?&gt;
+</code></pre></div></div>
+
+<p>比如上面的方法调用，框架先尝试以Photos-1-10001为Key在缓存中查找，未找到的话再执行数据库查询并放入缓存。当更改照片属性或删除照片时，框架负责从缓存中删除该照片。这种单个对象的缓存实现起来比较简单。稍微麻烦的是像下面这样的列表查询结果的缓存。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;?php
+    $photos = $Photos-&gt;fetch(array('user_id' =&gt; 1, 'posted_date__gt' =&gt; '2010-06-01'));
+?&gt;
+</code></pre></div></div>
+
+<p>我们把这个查询分成两步，第一步先查出符合条件的照片ID，然后再根据照片ID分别查找具体的照片信息。 这么做可以更好的利用缓存。第一个查询的缓存Key为Photos-list-{shard_key}-{md5(查询条件SQL语句)}， Value是照片ID列表（逗号间隔）。其中shard_key为user_id的值1。目前来看，列表缓存也不麻烦。 但是如果用户修改了某张照片的上传时间呢，这个时候缓存中的数据就不一定符合条件了。所以，我们需要一个机制来保证我们不会从缓存中得到过期的列表数据。我们为每张表设置了一个revision，当该表的数据发生变化时（调用insert/update/delete方法）， 我们就更新它的revision，所以我们把列表的缓存Key改为Photos-list-{shard_key}-{md5(查询条件SQL语句)}-{revision}， 这样我们就不会再得到过期列表了。</p>
+
+<p>revision信息也是存放在缓存里的，Key为Photos-revision。这样做看起来不错，但是好像列表缓存的利用率不会太高。因为我们是以整个数据类型的revision为缓存Key的后缀，显然这个revision更新的非常频繁，任何一个用户修改或上传了照片都会导致它的更新，哪怕那个用户根本不在我们要查询的Shard里。要隔离用户的动作对其他用户的影响，我们可以通过缩小revision的作用范围来达到这个目的。 所以revision的缓存Key变成Photos-{shard_key}-revision，这样的话当ID为1的用户修改了他的照片信息时， 只会更新Photos-1-revision这个Key所对应的revision。</p>
+
+<p>因为全局库没有shard_key，所以修改了全局库中的表的一行数据，还是会导致整个表的缓存失效。 但是大部分情况下，数据都是有区域范围的，比如我们的帮助论坛的主题帖子， 帖子属于主题。修改了其中一个主题的一个帖子，没必要使所有主题的帖子缓存都失效。 所以我们在DBTable上增加了一个叫isolate_key的属性。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;?php
+$GLOBALS['Posts'] = new DBTable('Posts', 'yp_posts', array(
+        'topic_id'    =&gt; array('type' =&gt; 'long', 'primary' =&gt; true),
+        'post_id'     =&gt; array('type' =&gt; 'long', 'primary' =&gt; true, 'auto_increment' =&gt; true),
+        'author_id'   =&gt; array('type' =&gt; 'long'),
+        'content'     =&gt; array('type' =&gt; 'string'),
+        'posted_at'   =&gt; array('type' =&gt; 'datetime'),
+        'modified_at' =&gt; array('type' =&gt; 'datetime'),
+        'modified_by' =&gt; array('type' =&gt; 'long'),
+    ), 'topic_id');
+?&gt;
+</code></pre></div></div>
+
+<p>注意构造函数的最后一个参数topic_id就是指以字段topic_id作为isolate_key，它的作用和shard_key一样用于隔离revision的作用范围。</p>
+
+<p>ShardedDBTable继承自DBTable，所以也可以指定isolate_key。 ShardedDBTable指定了isolate_key的话，能够更大幅度缩小revision的作用范围。 比如相册和照片的关联表yp_album_photos，当用户往他的其中一个相册里添加了新的照片时， 会导致其它相册的照片列表缓存也失效。如果我指定这张表的isolate_key为album_id的话， 我们就把这种影响限制在了本相册内。</p>
+
+<p>我们的缓存分为两级，第一级只是一个PHP数组，有效范围是Request。而第二级是memcached。这么做的原因是，很多数据在一个Request周期内需要加载多次，这样可以减少memcached的网络请求。另外我们的框架也会尽可能的发送memcached的gets命令来获取数据， 从而减少网络请求。</p>
+
+<p>总结
+这个架构使得我们在很长一段时间内都不必再为数据库压力所困扰。我们的设计很多地方参考了netlog和flickr的实现，因此非常感谢他们将一些实现细节发布出来。</p>
+
+<p>关于作者：</p>
+
+<p>周兆兆（Zola,不是你熟知的那个），又拍网架构师。6年IT从业经验，不太专注于某项技术，对很多技术都感兴趣。</p>
+
+<p>给InfoQ中文站投稿或者参与内容翻译工作，请邮件至editors@cn.infoq.com。也欢迎大家加入到InfoQ中文站用户讨论组中与我们的编辑和其他读者朋友交流。</p>
+
+<p>原文地址: http://www.infoq.com/cn/articles/yupoo-partition-database</p>
+
+<p>图1：开发语言</p>
+
+<p>由于PHP的单线程模型，我们把耗时较久的运算和I/O操作从HTTP请求周期中分离出来</p>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#mysql">mysql</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#mysql">mysql</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/mysql/2013/08/25/%E5%8F%88%E6%8B%8D%E7%BD%91%E6%9E%B6%E6%9E%84%E4%B8%AD%E7%9A%84%E5%88%86%E5%BA%93%E8%AE%BE%E8%AE%A1/" data-title="又拍网架构中的分库设计 | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/linux/2013/08/22/%E8%87%AA%E5%8A%A8%E5%8C%96%E8%BF%90%E7%BB%B4%E4%B9%8B%E4%BC%81%E4%B8%9A%E5%AE%9E%E9%99%85%E6%A1%88%E4%BE%8B%E5%88%86%E6%9E%90/" title="自动化运维之企业实际案例分析">
+  <strong>上一篇：</strong><br/>
+  <span>
+  自动化运维之企业实际案例分析</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/oracle/2013/09/02/oracle%E6%9F%A5%E7%9C%8B%E7%94%A8%E6%88%B7_%E7%94%A8%E6%88%B7%E6%9D%83%E9%99%90_%E7%94%A8%E6%88%B7%E8%A1%A8%E7%A9%BA%E9%97%B4_%E7%94%A8%E6%88%B7%E9%BB%98%E8%AE%A4%E8%A1%A8%E7%A9%BA%E9%97%B4/"  title="oracle查看用户_用户权限_用户表空间_用户默认表空间">
+ <strong>下一篇：</strong><br/> 
+ <span>oracle查看用户_用户权限_用户表空间_用户默认表空间
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+

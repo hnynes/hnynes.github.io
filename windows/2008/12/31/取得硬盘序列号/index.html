@@ -1,0 +1,930 @@
+
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+    
+    
+    
+    
+    <title>取得硬盘序列号 | Mars(hnynes)</title>
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="Mars (hnynes)">
+    
+
+    
+    <!--<%- open_graph({twitter_id: theme.author.twitter, google_plus: theme.author.google_plus}) %>-->
+
+    <meta name="description" content="page.description">
+    
+    <meta property="og:type" content="article">
+    
+    <meta property="og:title" content="取得硬盘序列号">
+    <meta property="og:url" content="/windows/2008/12/31/%E5%8F%96%E5%BE%97%E7%A1%AC%E7%9B%98%E5%BA%8F%E5%88%97%E5%8F%B7/">
+    <meta property="og:site_name" content="Mars(hnynes)">
+    <meta property="og:description" content="">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="取得硬盘序列号">
+    <meta name="twitter:description" content="page.description">
+    <meta name="twitter:creator" content="@">
+    <link rel="publisher" href="">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Mars(hnynes)" type="application/atom+xml">
+    
+    
+    
+
+    <link rel="stylesheet" href="/assets/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/assets/css/highlight.css" type="text/css">
+    
+    <style>
+        body >header {
+            background: url("/assets/img/banner.jpg") center #2ca6cb;
+        }
+    </style>
+    
+    
+</head>
+
+  <body>
+    <header>
+        <div>
+		    
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Mars(hnynes)">Mars(hnynes)</a></h1>
+				<h2 class="blog-motto">Keep hungury, keep fooling.</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="menu">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">Home</a></li>
+					
+						<li><a href="/archives">Archives</a></li>
+					
+						<li><a href="/about">About</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="/search" method="get" accept-charset="utf-8">
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+					</form>
+					
+					</li>
+				</ul>
+			</nav>
+</div>
+
+    </header>
+    <div id="container">
+      
+
+
+
+<div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+	<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/windows/2008/12/31/%E5%8F%96%E5%BE%97%E7%A1%AC%E7%9B%98%E5%BA%8F%E5%88%97%E5%8F%B7/" title="取得硬盘序列号" itemprop="url">取得硬盘序列号</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="Mars (hnynes)" target="_blank" itemprop="author">Mars (hnynes)</a>
+		
+  <p class="article-time">
+    <time datetime="2008-12-31 00:00:00 +0800" itemprop="datePublished"> 发表于 2008-12-31</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article toc-content" style="display: none;">
+		
+			<!--<%- toc(item.content) %>-->
+		
+		</div>
+		
+		<p>[[转载]]</p>
+
+<p>请教各位，如何取得硬盘序列号？</p>
+
+<p>如何在Windows   95/98下读取硬盘序列号  <br />
+  ――兼谈“如何从应用程序中执行特权0级代码”<br />
+  北京时代先锋软件有限责任公司  <br />
+  丁凯</p>
+
+<p>一、什么是硬盘的序列号  <br />
+—-   硬盘的序列号是生产时由厂家设定的，存在于硬盘的控制芯片内，不随硬盘的分<br />
+区、格式化状态而改变，象硬盘的物理柱面数、扇区数一样，是一个与操作系统无关的<br />
+特性。该序列号只能用硬盘控制器的I/O指令读取.，并且不能用常规办法修改。  <br />
+—-   需要注意的是，硬盘的序列号是物理存在的，这与将硬盘格式化成FAT或FAT32后在<br />
+分区引导扇区自动生成的序列号有着根本的区别。格式化产生的序列号是一种逻辑上的<br />
+号码，每次格式化产生的序列号是不同的，并且可以手工修改。  <br />
+二、为什么要读取硬盘的序列号  <br />
+—-   可以想到的唯一原因就是软件防拷贝保护。这是由硬盘序列号的唯一性和只读性所<br />
+决定的。一般的做法是在软件安装到硬盘时读取该序列号，在做些适当的变化后保存起<br />
+来，以后，安装到硬盘的软件可以根据当前的硬盘序列号和安装时保存的序列号进行比<br />
+较，如果发现二者不一致时，说明该软件被非法拷贝到其实硬盘上运行。  <br />
+—-   因为该序列号已经由生产厂家保证了它的唯一性，并且用户又不可能修改，所以用<br />
+这种方法基本上保证了软件的合法效益，国内已经有许多DOS下的软件采用了这种方式。<br />
+顺便提一下，这些软件还常利用主板的BIOS配合硬盘的序列号进行保护。究其原因，一<br />
+方面是为了增大加密的强度，另一方面，也就是本方法的缺点，就是有些硬盘，如<br />
+SANSUNG   的某些型号，是没有序列号的。  <br />
+三、如何读取硬盘的序列号  <br />
+—-   硬盘的序列号只能采用对硬盘控制器直接操作的方式进行读取，也就是说只能采用<br />
+CPU的I/O指令操作硬盘控制器，读取的方法如下面的C语言程序所示：  <br />
+  static   int   WaitIde()<br />
+  {<br />
+        int       al;<br />
+        while   ((al=inp(0x1F7))   &gt;=0x80)   ;<br />
+        return   al;<br />
+  }<br />
+  static   void   ReadIDE()<br />
+  {<br />
+        int       al;<br />
+        int       i;<br />
+        WORD     pw[256];<br />
+        WaitIde();<br />
+        outp(0x1F6,0xA0);<br />
+        al   =   WaitIde();<br />
+        if   ((al&amp;0x50)!=0x50)   return;<br />
+        outp(0x1F6,0xA0);<br />
+        outp(0x1F7,0xEC);<br />
+        al   =   WaitIde();<br />
+        if   ((al&amp;0x58)!=0x58)   return;<br />
+        for   (i=0;i&lt;   256;i++)  <br />
+              pw[i]   =   inpw(0x1F0);<br />
+  }</p>
+
+<p>—-   上面的程序实际上读取了保存在硬盘控制器内的全部信息，而序列号只是其中的一<br />
+部分，位于上面提到的   pw[]   数组的   10   至   20   元素内，即从   &amp;pw[10]   开始的10个<br />
+WORD内，每个WORD占两个字节，共占用了20个字节。由于该序列号保存时每个WORD的<br />
+高、低字节是非Intel顺序，也就是说它的高字节在前，低字节在后，所以在使用时需要<br />
+将高、低字节颠倒一下，这样就能得到完整的序列号。  <br />
+四、上面所说的读取方法为什么不能在Windows   95下用  <br />
+—-   以前，在DOS时代，用这种方法完全可以读到硬盘的序列号并利用它进行软件防拷<br />
+贝保护，即使在Windows   3.x下也没有问题，但随着Windows   95(及Windows   98，下简称<br />
+Windows   9x)的普及，这种方法的局限性也显露出来，因为在Windows   9x下用这种方法根<br />
+本就读不到任何信息。  <br />
+—-   原因是在Windows   9x下，上面代码所用的I/O指令被作为特权指令限制起来了。那<br />
+么，什么是特权指令呢？  <br />
+—-   首先，简单回顾一下Intel   80386以上CPU的保护机制，从80386以后，CPU分为四<br />
+个特权级别(即Ring   0－3)，供操作系统使用，其中Ring   0的级别最高，Ring   3的级别最<br />
+低。所允许的CPU指令集从0到3有所减少。那些仅在Ring   0级别上使用的指令即为特别指<br />
+令。在其它级别上执行特权指令会导致CPU异常的产生。  <br />
+—-   现在回到Windows   9x中，Windows   95/98在设计时只使用了CPU的两个特权级别，即<br />
+Ring   0和Ring   3。在这两个级别中，Windows的虚拟机管理、各种驱动程序(VxD)运行在<br />
+Ring   0级，其它应用程序，甚至包括KERNEL、GDI、USER三个主要模块在内都运行在<br />
+Ring   3级，   这个级别的程序通过CPU的异常从Ring   0模块中取得所需要的服务。而<br />
+Windows   9x自己提供了异常处理程序，所以可以提供相应的服务。  <br />
+—-   在Ring   3级别上，操作硬盘控制器的I/O指令是不可使用的，所以第三节中所列出<br />
+的代码在执行到   WaitIde()时会陷到死循环中，原因就是Windows   9x的异常处理程序总<br />
+是让   IN   0x1F7返回   0xFF(事实上，即使跳过这个等待也不行)。  <br />
+五、在Windows   9x下应该如何读  <br />
+—-   那么，应该如何在Windows   9x下绕过这层保护来操作硬盘控制器从而达到读取序列<br />
+号的目的呢？容易想到的解决办法是写一个虚拟设备驱动程序，即VxD，因为VxD是运行<br />
+在CPU的Ring   0最高特权级别上的。在该级别，所有的指令都是可用的。采用这种方法是<br />
+可以直接读取的。事实上我已经写了这样的   VxD，效果与在DOS下是一样的。  <br />
+—-   然而，这种方法存在三个问题(或称为缺点)：  <br />
+—-   第一，   写VxD要比写普通的Windows   9x程序要复杂得多，所需要的操作系统知识也<br />
+多得多。需要编程人员熟悉Windows   9x的DDK及相关的内核技术。在可视化编程风行一时<br />
+的今天，许多VB、Delphi的程序员几乎连Windows   9x的SDK都有些生疏，就更别提用DDK<br />
+进行编程了，从这个角度看，用编写VxD的方法确实平空增加了许多难度。（实在有兴趣<br />
+的读者可以参阅拙作“VxD入门教程”）  <br />
+—-   第二，   由于VxD运行在CPU的Ring   0级，实际上也运行在Windows   9x操作系统的核<br />
+心级，所以任何一个小小的疏忽都足以让Windows   9x崩溃，毫无疑问，这将会增加系统<br />
+的不稳定性，特别是经验不足的程序员编写的VxD，更容易出现问题。  <br />
+—-   第三，   读硬盘序列号的主要目的是为了保护软件，也就是防止非法拷贝，如果带<br />
+上一个VxD，很明显会提示别人应该如何破解。  <br />
+—-   其实，我们完全可以在普通应用程序中采用VxD技术进行操作，这将会涉及到如何<br />
+在应用程序级（Ring   3）执行Ring   0级代码的技术。  <br />
+六、如何从应用程序中执行特权0级代码  <br />
+—-   采用这种方法唯一的一个技术难点就是利用   CPU   的异常从   Ring   3   直接切换到  <br />
+Ring   0。如果解决了这个问题，那么剩下的工作就非常简单了。值得一提的是，由于该<br />
+技术将CPU切换到   Ring   0   级别运行，所以，可以进行的操作就不仅仅是读取硬盘序列<br />
+号这么简单了。  <br />
+—-   为了解决这个问题，我们还需要再回头看看CPU的保护模式和中断处理方式。  <br />
+—-   在实模式下，中断向量表位于内存地址的0:0处，每当中断发生时，无论是硬中断<br />
+还是软中断，CPU都会从该表中查找中断的入口位置，并执行相应的中断处理程序。  <br />
+—-   在保护模式下(包括V86方式)，中断向量表不是必须放在物理内存0000:0000处，事<br />
+实上，象“0000:0000”这种表示方式也发生了根本变化，原来意义上的的段址已经不复<br />
+存在了，代之以段选择器。相应地，中断向量表也用中断描述符表(IDT)取代了，这意味<br />
+着当发生中断或异常时(异常只在保护模式下存在，可以简单地把它当作中断看待)，<br />
+CPU查找的是IDT，然后再根据查到的入口地址执行相应的处理程序。  <br />
+—-   关于这部分内容的详细情况请参阅80386   (及以上)   CPU的技术手册。  <br />
+—-   从上面可以看出，虽然查找的内容及方法发生了变化，但原理并没有变，如果要修<br />
+改中断入口，所需要修改的地方无非是变成了IDT而已。更妙的是，中断(或异常)处理程<br />
+序是运行在CPU最高特权级Ring   0上，仅有这点还不够，我们还需要对IDT具有写的权限，<br />
+幸运的是，在Windows   95/98下，IDT位于内存的0C0000000以上的共享区域，而这部分区<br />
+域是对所有进程都可见的，其中的IDT则对所有进程都是可写的，这就使得我们从<br />
+Ring   3执行Ring   0级别的代码成为可能。  <br />
+七、如何利用Ring   0代码读取硬盘的序列号  <br />
+—-   根据以上的分析，可以将具体的方法归结如下：  <br />
+—-   首先，需要取得系统   IDT，这可用   SIDT   指令一步到位，该指令不受特权级3的限<br />
+制；  <br />
+—-   然后，选定一个中断（异常），修改其在   IDT   中的入口(修改的方法请参阅IDT的<br />
+格式)，使其指向我们自己的处理程序；虽然IDT表中的所有的项都可以使用，但我建议<br />
+使用中断   3,   这个中断是给调试器用的，平常没用。  <br />
+—-   最后，通常执行该中断产生异常。方法是直接执行代码   INT   3，当然，在Ring   3  <br />
+上执行该指令必然地导致CPU异常的发生，于是，我们的处理程序就这样轻易而举地得到<br />
+了控制权。  <br />
+—-   一旦得到CPU最高特权级的控制权，中断处理程序就可以进行任何平常在   Ring   3  <br />
+级别上不能够进行的操作了，包括读取硬盘序列号。  <br />
+—-   说得再具体一些，就是将本文前面第三节中列出的程序代码放到中断处理程序中即<br />
+可全部搞定了。  <br />
+—-   采用这种方法读取硬盘序列号的完整C语言程序限于篇幅就不在文中列出。  <br />
+八、小结  <br />
+—-   实际上我写这篇文章的目的并不完全是为了读取硬盘的序列号(这东东毕竟没多大<br />
+用途，有些硬盘，如三星的   32543A   根本就没有序列号)，主要的目的是想在从   Ring   3<br />
+获取   Ring   0   特权这个问题上做些尝试。  <br />
+—-   最后，需要说明的是，这种方法不可以在   Windows   NT   下使用。原因是在<br />
+Windows   NT下无法修改IDT。</p>
+  
+	</div>
+	<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <!--
+  <%- list_categories(item.categories, {
+      show_count: false,
+      class: 'article-category',
+      style: 'none',
+      separator: '►'
+  }) %>
+  -->
+  
+  <a class="article-category-link" href="/categories/#windows">windows</a>
+  
+</div>
+
+
+  <div class="article-tags">
+  <!--
+  <% var tags = [];
+    item.tags.forEach(function(tag){
+      tags.push('<a href="' + config.root + tag.path + '">' + tag.name + '</a>');
+    }); %>-->
+  <span></span> <!--<%- tags.join('') %>-->
+  
+  
+  <a href="/tags/#windows">windows</a>
+  
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://localhost:18000/windows/2008/12/31/%E5%8F%96%E5%BE%97%E7%A1%AC%E7%9B%98%E5%BA%8F%E5%88%97%E5%8F%B7/" data-title="取得硬盘序列号 | Mars(hnynes)" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+   
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/windows/2008/10/30/win2003sp2%E6%97%A0%E6%B3%95%E5%AE%89%E8%A3%85%E6%88%96%E9%87%8D%E8%A3%85IIS%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95/" title="win2003sp2无法安装或重装IIS的解决方法">
+  <strong>上一篇：</strong><br/>
+  <span>
+  win2003sp2无法安装或重装IIS的解决方法</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/mysql/2009/08/13/Mysql%E5%A4%8D%E5%88%B6%E7%9A%84%E5%90%84%E7%A7%8D%E6%93%8D%E4%BD%9C/"  title="Mysql复制的各种操作">
+ <strong>下一篇：</strong><br/> 
+ <span>Mysql复制的各种操作
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+
+      
+      
+      <div class="openaside"><a class="navbutton" href="#" title="Show Sidebar"></a></div>
+
+  <div id="toc" class="toc-aside toc-content">
+ 
+ <!--<%- toc(item.content) %>-->
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="Hide Sidebar"></a></div>
+<aside class="clearfix">
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/#java" title="java">java<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#windows" title="windows">windows<sup>7</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#learn" title="learn">learn<sup>8</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#database" title="database">database<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#network" title="network">network<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#test" title="test">test<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#python" title="python">python<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#linux" title="linux">linux<sup>9</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#program" title="program">program<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#eng" title="eng">eng<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/#java" title="java">java<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#cplusplus" title="cplusplus">cplusplus<sup>11</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#windows" title="windows">windows<sup>7</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#learn" title="learn">learn<sup>8</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mysql" title="mysql">mysql<sup>44</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#database" title="database">database<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#network" title="network">network<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#mssql" title="mssql">mssql<sup>50</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#项目管理" title="项目管理">项目管理<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#test" title="test">test<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#python" title="python">python<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#ruby" title="ruby">ruby<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#linux" title="linux">linux<sup>9</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#program" title="program">program<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#oracle" title="oracle">oracle<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#eng" title="eng">eng<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/#hadoop" title="hadoop">hadoop<sup>2</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div id="tagcloud" class="tagcloudlist clearfix">
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            <a href="https://my.oschina.net/hnyness" target="_blank" title="我的空间">我的空间</a>
+          </li>
+        
+          <li>
+            <a href="http://hnynes.blog.chinaunix.net" target="_blank" title="我的chinaunix博客">我的chinaunix博客</a>
+          </li>
+        
+          <li>
+            <a href="https://www.postgresql.org/" target="_blank" title="PostgreSQL官网">PostgreSQL官网</a>
+          </li>
+        
+          <li>
+            <a href="http://www.postgres.cn/v2/home" target="_blank" title="PostgreSQL中文社区">PostgreSQL中文社区</a>
+          </li>
+        
+          <li>
+            <a href="https://dev.mysql.com/doc/refman/5.7/en/" target="_blank" title="MySQL官文文档5.7">MySQL官文文档5.7</a>
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="hnynes" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	
+	<section class="info">
+		<p> Hello , I'm Mars(hnynes). <br/>
+			This is my blog, believe it or not.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		
+		<a href="https://github.com/hnynes" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	</div>
+	<!--
+			<%  Array.prototype.S=String.fromCharCode(2);
+			  Array.prototype.in_array=function(e){
+    			var r=new RegExp(this.S+e+this.S);
+    			return (r.test(this.S+this.join(this.S)+this.S));
+				};
+				var cc = new Array('by','by-nc','by-nc-nd','by-nc-sa','by-nd','by-sa','zero'); %>
+		<% if (cc.in_array(theme.creative_commons) ) { %>
+				<div class="cc-license">
+          <a href="http://creativecommons.org/licenses/<%= theme.creative_commons %>/4.0" class="cc-opacity" target="_blank">
+            <img src="<%- config.root %>img/cc-<%= theme.creative_commons %>.svg" alt="Creative Commons" />
+          </a>
+        </div>
+    <% } %>
+				-->
+
+		<p class="copyright">
+		Powered by <a href="http://jekyllrb.com" target="_blank" title="jekyll">jekyll</a> and Theme by <a href="https://github.com/simpleyyt/jekyll-jacman" target="_blank" title="Jacman">Jacman</a> © 2015 
+		
+		<a href="about" target="_blank" title="Mars (hnynes)">Mars (hnynes)</a>
+		
+		
+		</p>
+</div>
+</footer>
+    <script src="/assets/js/jquery-2.0.3.min.js"></script>
+<script src="/assets/js/jquery.imagesloaded.min.js"></script>
+<script src="/assets/js/gallery.js"></script>
+<script src="/assets/js/jquery.qrcode-0.12.0.min.js"></script>
+<script src="/assets/js/toc.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+
+  
+
+  $(window).resize(function(){
+    getSize();
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+      
+    }
+  });
+});
+</script>
+
+
+<script src="/assets/js/tagcloud.js"></script>
+<script>
+$(document).ready(function() {
+  var tags = [
+    
+    { "name": "java", "path": "/tags/#java", "length": 1 },
+    
+    { "name": "cplusplus", "path": "/tags/#cplusplus", "length": 11 },
+    
+    { "name": "windows", "path": "/tags/#windows", "length": 7 },
+    
+    { "name": "learn", "path": "/tags/#learn", "length": 8 },
+    
+    { "name": "mysql", "path": "/tags/#mysql", "length": 44 },
+    
+    { "name": "database", "path": "/tags/#database", "length": 3 },
+    
+    { "name": "network", "path": "/tags/#network", "length": 1 },
+    
+    { "name": "mssql", "path": "/tags/#mssql", "length": 50 },
+    
+    { "name": "项目管理", "path": "/tags/#项目管理", "length": 1 },
+    
+    { "name": "test", "path": "/tags/#test", "length": 1 },
+    
+    { "name": "python", "path": "/tags/#python", "length": 2 },
+    
+    { "name": "ruby", "path": "/tags/#ruby", "length": 1 },
+    
+    { "name": "linux", "path": "/tags/#linux", "length": 9 },
+    
+    { "name": "program", "path": "/tags/#program", "length": 1 },
+    
+    { "name": "oracle", "path": "/tags/#oracle", "length": 2 },
+    
+    { "name": "eng", "path": "/tags/#eng", "length": 1 },
+    
+    { "name": "hadoop", "path": "/tags/#hadoop", "length": 2 },
+    
+  ];
+  $("#tagcloud").html(tagcloudHelper(tags));
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $('#toc.toc-aside').toc({
+    title: "文章目录",
+    showEffect: "none"
+  });
+  $('#toc.toc-article').toc({
+    title: "文章目录",
+    showEffect: "show",
+    showSpeed: 0
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#nothing"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+/*
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      //$('.hoverqrcode').hide();
+  });
+  */
+});
+</script>
+
+
+
+
+<script type="text/javascript">
+var disqus_shortname = 'mars_tong';
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<!--
+
+-->
+
+
+
+
+<link rel="stylesheet" href="/assets/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/assets/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      if ($(this).hasClass('emoji')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+});
+</script>
+
+
+<!-- Analytics Begin -->
+
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'G-EZGXNNMQ8Y', 'hnynes.github.io');  
+ga('send', 'pageview');
+</script>
+
+
+
+
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/assets/img/scrollup.png"/></a>
+	</div>
+	<script src="/assets/js/totop.js"></script>
+
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+
+  </body>
+</html>
+
