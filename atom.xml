@@ -2,10 +2,10 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
 
  <title>Mars(hnynes)</title>
- <link href="http://localhost:18000/atom.xml" rel="self"/>
- <link href="http://localhost:18000"/>
- <updated>2019-10-17T15:42:29+08:00</updated>
- <id>http://localhost:18000</id>
+ <link href="https://hnynes.github.io/atom.xml" rel="self"/>
+ <link href="https://hnynes.github.io"/>
+ <updated>2019-10-21T10:28:47+08:00</updated>
+ <id>https://hnynes.github.io</id>
  <author>
    <name>Mars (hnynes)</name>
    <email></email>
@@ -14,9 +14,9 @@
  
  <entry>
    <title>QP支付后台用户存取款历史数据分表存储</title>
-   <link href="http://localhost:18000/mysql/2019/09/27/QP%E6%94%AF%E4%BB%98%E5%90%8E%E5%8F%B0%E7%94%A8%E6%88%B7%E5%AD%98%E5%8F%96%E6%AC%BE%E5%8E%86%E5%8F%B2%E6%95%B0%E6%8D%AE%E5%88%86%E8%A1%A8%E5%AD%98%E5%82%A8/"/>
+   <link href="https://hnynes.github.io/mysql/2019/09/27/QP%E6%94%AF%E4%BB%98%E5%90%8E%E5%8F%B0%E7%94%A8%E6%88%B7%E5%AD%98%E5%8F%96%E6%AC%BE%E5%8E%86%E5%8F%B2%E6%95%B0%E6%8D%AE%E5%88%86%E8%A1%A8%E5%AD%98%E5%82%A8/"/>
    <updated>2019-09-27T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2019/09/27/QP支付后台用户存取款历史数据分表存储</id>
+   <id>https://hnynes.github.io/mysql/2019/09/27/QP支付后台用户存取款历史数据分表存储</id>
    <content type="html">&lt;h1 id=&quot;qp支付后台用户存取款历史数据分表存储&quot;&gt;QP支付后台用户存取款历史数据分表存储&lt;/h1&gt;
 
 &lt;h2 id=&quot;问题&quot;&gt;问题&lt;/h2&gt;
@@ -108,9 +108,9 @@ withdraw的chan_code字段为: type&lt;/p&gt;
  
  <entry>
    <title>使用Wireshark查看tcpdump抓包数据</title>
-   <link href="http://localhost:18000/linux/2019/09/06/%E4%BD%BF%E7%94%A8Wireshark%E6%9F%A5%E7%9C%8Btcpdump%E6%8A%93%E5%8C%85%E6%95%B0%E6%8D%AE/"/>
+   <link href="https://hnynes.github.io/linux/2019/09/06/%E4%BD%BF%E7%94%A8Wireshark%E6%9F%A5%E7%9C%8Btcpdump%E6%8A%93%E5%8C%85%E6%95%B0%E6%8D%AE/"/>
    <updated>2019-09-06T00:00:00+08:00</updated>
-   <id>http://localhost:18000/linux/2019/09/06/使用Wireshark查看tcpdump抓包数据</id>
+   <id>https://hnynes.github.io/linux/2019/09/06/使用Wireshark查看tcpdump抓包数据</id>
    <content type="html">&lt;h1 id=&quot;使用wireshark查看tcpdump抓包数据&quot;&gt;使用Wireshark查看tcpdump抓包数据&lt;/h1&gt;
 
 &lt;p&gt;前段时间有台应用服务器与数据操作api之间,经常发生数据丢失的问题,运维同事查了好久也没有给出确定的答复, 到底问题在什么地方. &lt;br /&gt;
@@ -147,9 +147,9 @@ Usage: tcpdump [-aAbdDefhHIJKlLnNOpqStuUvxX#] [ -B size ] [ -c count ]&lt;br /&g
  
  <entry>
    <title>8步从Python白板到专家</title>
-   <link href="http://localhost:18000/python/2015/04/23/8%E6%AD%A5%E4%BB%8EPython%E7%99%BD%E6%9D%BF%E5%88%B0%E4%B8%93%E5%AE%B6/"/>
+   <link href="https://hnynes.github.io/python/2015/04/23/8%E6%AD%A5%E4%BB%8EPython%E7%99%BD%E6%9D%BF%E5%88%B0%E4%B8%93%E5%AE%B6/"/>
    <updated>2015-04-23T00:00:00+08:00</updated>
-   <id>http://localhost:18000/python/2015/04/23/8步从Python白板到专家</id>
+   <id>https://hnynes.github.io/python/2015/04/23/8步从Python白板到专家</id>
    <content type="html">&lt;p&gt;8步从Python白板到专家，从基础到深度学习&lt;/p&gt;
 
 &lt;p&gt;如果你想做一个数据科学家，或者作为一个数据科学家你想扩展自己的工具和知识库，那么，你来对地方了。&lt;/p&gt;
@@ -358,9 +358,9 @@ www.debuggex.com/cheatsheet/regex/python&lt;/p&gt;
  
  <entry>
    <title>ext3_ext4_xfs和btrfs文件系统性能对比</title>
-   <link href="http://localhost:18000/linux/2015/03/19/ext3_ext4_xfs%E5%92%8Cbtrfs%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD%E5%AF%B9%E6%AF%94/"/>
+   <link href="https://hnynes.github.io/linux/2015/03/19/ext3_ext4_xfs%E5%92%8Cbtrfs%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD%E5%AF%B9%E6%AF%94/"/>
    <updated>2015-03-19T00:00:00+08:00</updated>
-   <id>http://localhost:18000/linux/2015/03/19/ext3_ext4_xfs和btrfs文件系统性能对比</id>
+   <id>https://hnynes.github.io/linux/2015/03/19/ext3_ext4_xfs和btrfs文件系统性能对比</id>
    <content type="html">&lt;p&gt;ext3，ext4，xfs和btrfs文件系统性能对比&lt;/p&gt;
 
 &lt;p&gt;应为原文：http://www.ilsistemista.net/index.php/linux-a-unix/6-linux-filesystems-benchmarked-ext3-vs-ext4-vs-xfs-vs-btrfs.html?start=1&lt;/p&gt;
@@ -518,9 +518,9 @@ Ext2 那样，只是增加了一个日志功能而已。Ext4 可以提供更佳�
  
  <entry>
    <title>MySQL写入插入数据优化配置</title>
-   <link href="http://localhost:18000/mysql/2014/12/23/MySQL%E5%86%99%E5%85%A5%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE%E4%BC%98%E5%8C%96%E9%85%8D%E7%BD%AE/"/>
+   <link href="https://hnynes.github.io/mysql/2014/12/23/MySQL%E5%86%99%E5%85%A5%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE%E4%BC%98%E5%8C%96%E9%85%8D%E7%BD%AE/"/>
    <updated>2014-12-23T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/12/23/MySQL写入插入数据优化配置</id>
+   <id>https://hnynes.github.io/mysql/2014/12/23/MySQL写入插入数据优化配置</id>
    <content type="html">&lt;p&gt;MySQL写入插入数据优化配置&lt;/p&gt;
 
 &lt;p&gt;文章重点介绍mysql写入优化，这里针对mysql的Innodb与MyISAM存储引擎来进行解说，希望文章来给大家带来帮助哦。&lt;br /&gt;
@@ -576,9 +576,9 @@ Ext2 那样，只是增加了一个日志功能而已。Ext4 可以提供更佳�
  
  <entry>
    <title>MySQL中计算sql语句影响行数的函数</title>
-   <link href="http://localhost:18000/mysql/2014/12/03/MySQL%E4%B8%AD%E8%AE%A1%E7%AE%97sql%E8%AF%AD%E5%8F%A5%E5%BD%B1%E5%93%8D%E8%A1%8C%E6%95%B0%E7%9A%84%E5%87%BD%E6%95%B0/"/>
+   <link href="https://hnynes.github.io/mysql/2014/12/03/MySQL%E4%B8%AD%E8%AE%A1%E7%AE%97sql%E8%AF%AD%E5%8F%A5%E5%BD%B1%E5%93%8D%E8%A1%8C%E6%95%B0%E7%9A%84%E5%87%BD%E6%95%B0/"/>
    <updated>2014-12-03T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/12/03/MySQL中计算sql语句影响行数的函数</id>
+   <id>https://hnynes.github.io/mysql/2014/12/03/MySQL中计算sql语句影响行数的函数</id>
    <content type="html">&lt;p&gt;MySQL中计算sql语句影响行数的函数&lt;/p&gt;
 
 &lt;p&gt;SELECT语句中经常可能用LIMIT限制返回行数。有时候可能想要知道如果没有LIMIT会返回多少行，但又不想再执行一次相同语句。那么，在SELECT查询中包含SQL_CALC_FOUND_ROWS选项，然后执行FOUND_ROWS()就可以了：&lt;/p&gt;
@@ -606,9 +606,9 @@ mysql&amp;gt; SET @rows = FOUND_ROWS();
  
  <entry>
    <title>哈佛校训</title>
-   <link href="http://localhost:18000/learn/2014/11/13/%E5%93%88%E4%BD%9B%E6%A0%A1%E8%AE%AD/"/>
+   <link href="https://hnynes.github.io/learn/2014/11/13/%E5%93%88%E4%BD%9B%E6%A0%A1%E8%AE%AD/"/>
    <updated>2014-11-13T00:00:00+08:00</updated>
-   <id>http://localhost:18000/learn/2014/11/13/哈佛校训</id>
+   <id>https://hnynes.github.io/learn/2014/11/13/哈佛校训</id>
    <content type="html">&lt;p&gt;哈佛大学校训：&lt;/p&gt;
 
 &lt;ol&gt;
@@ -685,9 +685,9 @@ mysql&amp;gt; SET @rows = FOUND_ROWS();
  
  <entry>
    <title>MySQL内存使用-线程独享</title>
-   <link href="http://localhost:18000/mysql/2014/06/26/MySQL%E5%86%85%E5%AD%98%E4%BD%BF%E7%94%A8-%E7%BA%BF%E7%A8%8B%E7%8B%AC%E4%BA%AB/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/26/MySQL%E5%86%85%E5%AD%98%E4%BD%BF%E7%94%A8-%E7%BA%BF%E7%A8%8B%E7%8B%AC%E4%BA%AB/"/>
    <updated>2014-06-26T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/26/MySQL内存使用-线程独享</id>
+   <id>https://hnynes.github.io/mysql/2014/06/26/MySQL内存使用-线程独享</id>
    <content type="html">&lt;p&gt;MySQL内存使用-线程独享&lt;/p&gt;
 
 &lt;p&gt;对于任何一个数据库管理系统来说，内存的分配使用绝对可以算的上是其核心之一了，所以很多希望更为深入了解某数据库管理系统的人，都会希望一窥究竟，我也不例外。&lt;/p&gt;
@@ -745,9 +745,9 @@ http://www.mysqlperformanceblog.com/2006/06/06/are-larger-buffers-always-better/
  
  <entry>
    <title>MySQL学习分享--机型选择与配置</title>
-   <link href="http://localhost:18000/mysql/2014/06/25/MySQL%E5%AD%A6%E4%B9%A0%E5%88%86%E4%BA%AB-%E6%9C%BA%E5%9E%8B%E9%80%89%E6%8B%A9%E4%B8%8E%E9%85%8D%E7%BD%AE/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/25/MySQL%E5%AD%A6%E4%B9%A0%E5%88%86%E4%BA%AB-%E6%9C%BA%E5%9E%8B%E9%80%89%E6%8B%A9%E4%B8%8E%E9%85%8D%E7%BD%AE/"/>
    <updated>2014-06-25T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/25/MySQL学习分享--机型选择与配置</id>
+   <id>https://hnynes.github.io/mysql/2014/06/25/MySQL学习分享--机型选择与配置</id>
    <content type="html">&lt;p&gt;MySQL学习分享–机型选择与配置&lt;/p&gt;
 
 &lt;p&gt;由于长期以来，一直忙于日常的工作，自身的学习和提高有所懈怠，最近越发明显感到今年的成长和进步幅度较上年有所降低。因此，从今天开始，坚持非工作时间，潜心学习和研究一些技术，每周汇总一下学习成果，一方面提高自己的技术能力和技术深度，另一方面分享给大家，互相交流。&lt;/p&gt;
@@ -784,9 +784,9 @@ Percona Server引入DoubleWrite独立文件（参数innodb_doublewrite_file）�
  
  <entry>
    <title>MySQL索引使用方法和性能优化</title>
-   <link href="http://localhost:18000/mysql/2014/06/18/MySQL%E7%B4%A2%E5%BC%95%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95%E5%92%8C%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/18/MySQL%E7%B4%A2%E5%BC%95%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95%E5%92%8C%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/"/>
    <updated>2014-06-18T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/18/MySQL索引使用方法和性能优化</id>
+   <id>https://hnynes.github.io/mysql/2014/06/18/MySQL索引使用方法和性能优化</id>
    <content type="html">&lt;p&gt;MySQL索引使用方法和性能优化&lt;/p&gt;
 
 &lt;p&gt;走向精通MySQL的道路非常的艰难，还好各种关系型数据库大同小异，足够让我从增删改查上升到高性能数据库的架构和调优。这期间的各种概念就不絮叨了，我也很难表述的很清楚，昨天写了个小脚本往我本机MySQL数据库的某张表里面注入了200万条数据(Windows7旗舰版/1.66GHz/2G内存/MySQL5.1.50)，数据表的结构如下图所示，属于一个比较基本的定长表，考虑到我可怜的本本的承受能力，id使用从1开始的自增，title字段为随机20个标题中的一个，content都是相同的内容，time使用时间戳而非datetime类型，即10位整型数据。&lt;br /&gt;
@@ -909,9 +909,9 @@ MySQL查询只使用一个索引，因此如果where子句中已经使用了索�
  
  <entry>
    <title>MySQL临时表</title>
-   <link href="http://localhost:18000/mysql/2014/06/18/MySQL%E4%B8%B4%E6%97%B6%E8%A1%A8/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/18/MySQL%E4%B8%B4%E6%97%B6%E8%A1%A8/"/>
    <updated>2014-06-18T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/18/MySQL临时表</id>
+   <id>https://hnynes.github.io/mysql/2014/06/18/MySQL临时表</id>
    <content type="html">&lt;p&gt;MySQL临时表&lt;/p&gt;
 
 &lt;p&gt;首先，临时表只在当前连接可见，当关闭连接时，Mysql会自动删除表并释放所有空间。因此在不同的连接中可以创建同名的临时表，并且操作属于本连接的临时表。&lt;/p&gt;
@@ -1066,9 +1066,9 @@ As indicated by the name, MEMORY tables are stored in memory. They use hash inde
  
  <entry>
    <title>Install_MySQL_Activity_Report_from_Source</title>
-   <link href="http://localhost:18000/mysql/2014/06/08/Install_MySQL_Activity_Report_from_Source/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/08/Install_MySQL_Activity_Report_from_Source/"/>
    <updated>2014-06-08T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/08/Install_MySQL_Activity_Report_from_Source</id>
+   <id>https://hnynes.github.io/mysql/2014/06/08/Install_MySQL_Activity_Report_from_Source</id>
    <content type="html">&lt;p&gt;Install MySQL Activity Report from Source&lt;/p&gt;
 
 &lt;p&gt;安装过程确实与下文叙述的差不多.  唯一有点遗憾的是,好像不能出图,这个我找了下原作者写的博客,上面提到了这个是个bug,说后面会解决,可惜没有下文了.&lt;/p&gt;
@@ -1199,9 +1199,9 @@ mv /etc/rc5.d/S20mysqlard.server /etc/rc5.d/S99mysqlard.server&lt;/p&gt;
  
  <entry>
    <title>用SecureCRT来上传和下载数据</title>
-   <link href="http://localhost:18000/linux/2014/06/07/%E7%94%A8SecureCRT%E6%9D%A5%E4%B8%8A%E4%BC%A0%E5%92%8C%E4%B8%8B%E8%BD%BD%E6%95%B0%E6%8D%AE/"/>
+   <link href="https://hnynes.github.io/linux/2014/06/07/%E7%94%A8SecureCRT%E6%9D%A5%E4%B8%8A%E4%BC%A0%E5%92%8C%E4%B8%8B%E8%BD%BD%E6%95%B0%E6%8D%AE/"/>
    <updated>2014-06-07T00:00:00+08:00</updated>
-   <id>http://localhost:18000/linux/2014/06/07/用SecureCRT来上传和下载数据</id>
+   <id>https://hnynes.github.io/linux/2014/06/07/用SecureCRT来上传和下载数据</id>
    <content type="html">&lt;p&gt;用SecureCRT来上传和下载数据&lt;/p&gt;
 
 &lt;p&gt;我使用的是SecureCRT5.5&lt;br /&gt;
@@ -1242,9 +1242,9 @@ rz，sz是Linux/Unix同Windows进行ZModem文件传输的命令行工具windows�
  
  <entry>
    <title>find_in_set_mysql_comma_seprated_search</title>
-   <link href="http://localhost:18000/mysql/2014/06/07/find_in_set_mysql_comma_seprated_search/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/07/find_in_set_mysql_comma_seprated_search/"/>
    <updated>2014-06-07T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/07/find_in_set_mysql_comma_seprated_search</id>
+   <id>https://hnynes.github.io/mysql/2014/06/07/find_in_set_mysql_comma_seprated_search</id>
    <content type="html">&lt;p&gt;find_in_set() – MySQL function – comma sperated search&lt;/p&gt;
 
 &lt;p&gt;Generally, We stores various values of choices in same a column of mysql database. For example we store user’s preferred categories in user table’s preferred_categories(varchar(250)) field(column). Value stored in this field may be like 1,2,5,6,1&lt;/p&gt;
@@ -1279,9 +1279,9 @@ rz，sz是Linux/Unix同Windows进行ZModem文件传输的命令行工具windows�
  
  <entry>
    <title>MySQL_partition分区</title>
-   <link href="http://localhost:18000/mysql/2014/06/07/MySQL_partition%E5%88%86%E5%8C%BA/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/07/MySQL_partition%E5%88%86%E5%8C%BA/"/>
    <updated>2014-06-07T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/07/MySQL_partition分区</id>
+   <id>https://hnynes.github.io/mysql/2014/06/07/MySQL_partition分区</id>
    <content type="html">&lt;p&gt;MySQL partition分区 (此文章较旧,仅作参考)
  分类： Mysql/postgreSQL2014-06-07 10:15:48
 注: 此文章内容较旧,新版本5.5 已支持直接使用时间类型作为分区字段,不需要转换为int类型.&lt;/p&gt;
@@ -1807,9 +1807,9 @@ Deleted blocks: 0 - check file-size - check record delete-chain - check key dele
  
  <entry>
    <title>MySQL_5.5_表分区功能增强</title>
-   <link href="http://localhost:18000/mysql/2014/06/07/MySQL_5.5_%E8%A1%A8%E5%88%86%E5%8C%BA%E5%8A%9F%E8%83%BD%E5%A2%9E%E5%BC%BA/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/07/MySQL_5.5_%E8%A1%A8%E5%88%86%E5%8C%BA%E5%8A%9F%E8%83%BD%E5%A2%9E%E5%BC%BA/"/>
    <updated>2014-06-07T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/07/MySQL_5.5_表分区功能增强</id>
+   <id>https://hnynes.github.io/mysql/2014/06/07/MySQL_5.5_表分区功能增强</id>
    <content type="html">&lt;p&gt;MySQL 5.5 表分区功能增强&lt;/p&gt;
 
 &lt;p&gt;MySQL5.1 引入表分区功能，使得MySQL在处理大表的能力上得到增强。使用过表分区功能的朋友应该知道，MySQL5.1中使用表分区的时候，对字段是有要求的，那就是必须是整数型，或者可以将其他类型的字段通过函数转换成整数型才可以。&lt;/p&gt;
@@ -1888,9 +1888,9 @@ Vertical Partitioning for MySQL(MySQL垂直分区)&lt;br /&gt;
  
  <entry>
    <title>How_to_optimize_MySQL_and_better_performance</title>
-   <link href="http://localhost:18000/mysql/2014/06/07/How_to_optimize_MySQL_and_better_performance/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/07/How_to_optimize_MySQL_and_better_performance/"/>
    <updated>2014-06-07T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/07/How_to_optimize_MySQL_and_better_performance</id>
+   <id>https://hnynes.github.io/mysql/2014/06/07/How_to_optimize_MySQL_and_better_performance</id>
    <content type="html">&lt;p&gt;How to optimize MySQL and better performance&lt;/p&gt;
 
 &lt;p&gt;As per past experience working with MySQL and PHP, I feel that after completing initial phase of any Product / Project, the main task is to tune performance. And when it comes to performance , the first thing comes to any developer is to see h&lt;/p&gt;
@@ -1925,9 +1925,9 @@ Use OPTIMIZE TABLE to reclaim unused space (Note: Table will be locked during op
  
  <entry>
    <title>从源码的角度对比Postgres与MySQL</title>
-   <link href="http://localhost:18000/mysql/2014/06/04/%E4%BB%8E%E6%BA%90%E7%A0%81%E7%9A%84%E8%A7%92%E5%BA%A6%E5%AF%B9%E6%AF%94Postgres%E4%B8%8EMySQL/"/>
+   <link href="https://hnynes.github.io/mysql/2014/06/04/%E4%BB%8E%E6%BA%90%E7%A0%81%E7%9A%84%E8%A7%92%E5%BA%A6%E5%AF%B9%E6%AF%94Postgres%E4%B8%8EMySQL/"/>
    <updated>2014-06-04T00:00:00+08:00</updated>
-   <id>http://localhost:18000/mysql/2014/06/04/从源码的角度对比Postgres与MySQL</id>
+   <id>https://hnynes.github.io/mysql/2014/06/04/从源码的角度对比Postgres与MySQL</id>
    <content type="html">&lt;p&gt;从源码的角度对比Postgres与MySQL&lt;/p&gt;
 
 &lt;p&gt;一直在从事postgres内核修改的工作，对postgres的代码还算比较熟悉，在工作讨论中，有意无意的大家都会提起，MySQL在这方面是怎么做的，最近读了以下网站：&lt;br /&gt;
@@ -2026,9 +2026,9 @@ http://www.mysqlops.com/2011/12/05/innodb-dead-lock.html&lt;br /&gt;
  
  <entry>
    <title>右键菜单增加使用Notepad++编辑</title>
-   <link href="http://localhost:18000/windows/2014/05/31/%E5%8F%B3%E9%94%AE%E8%8F%9C%E5%8D%95%E5%A2%9E%E5%8A%A0%E4%BD%BF%E7%94%A8Notepad++%E7%BC%96%E8%BE%91/"/>
+   <link href="https://hnynes.github.io/windows/2014/05/31/%E5%8F%B3%E9%94%AE%E8%8F%9C%E5%8D%95%E5%A2%9E%E5%8A%A0%E4%BD%BF%E7%94%A8Notepad++%E7%BC%96%E8%BE%91/"/>
    <updated>2014-05-31T00:00:00+08:00</updated>
-   <id>http://localhost:18000/windows/2014/05/31/右键菜单增加使用Notepad++编辑</id>
+   <id>https://hnynes.github.io/windows/2014/05/31/右键菜单增加使用Notepad++编辑</id>
    <content type="html">&lt;p&gt;右键菜单增加使用“Notepad++”编辑&lt;/p&gt;
 
 &lt;p&gt;安装完Notepad++后没有添加到右键菜单，很不方便，这时可以手动增加右键菜单。新建文件notepad++.reg，文件内容为：&lt;/p&gt;
@@ -2057,9 +2057,9 @@ http://www.mysqlops.com/2011/12/05/innodb-dead-lock.html&lt;br /&gt;
  
  <entry>
    <title>CentOS_6.3_安装VMware_Tools</title>
-   <link href="http://localhost:18000/linux/2014/05/31/CentOS_6.3_%E5%AE%89%E8%A3%85VMware_Tools/"/>
+   <link href="https://hnynes.github.io/linux/2014/05/31/CentOS_6.3_%E5%AE%89%E8%A3%85VMware_Tools/"/>
    <updated>2014-05-31T00:00:00+08:00</updated>
-   <id>http://localhost:18000/linux/2014/05/31/CentOS_6.3_安装VMware_Tools</id>
+   <id>https://hnynes.github.io/linux/2014/05/31/CentOS_6.3_安装VMware_Tools</id>
    <content type="html">&lt;p&gt;CentOS 6.3 安装VMware Tools&lt;/p&gt;
 
 &lt;p&gt;1 在VMWare图形界面中，将CentOS光驱设定为C:\Program Files\VMware\VMware Workstation\linux.iso，根据你的VM安装目录进行设定；&lt;/p&gt;
